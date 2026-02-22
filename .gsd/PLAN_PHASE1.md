@@ -57,13 +57,13 @@ px supabase db push
 * **Time estimate:** 3 hours
 * **Dependencies on previous steps:** 2. Data Pipeline
 
-## 4. Frontend Setup (Next.js + Charts)
+## 4. Frontend Setup (Next.js + TradingView Charts)
 * **Objective:** Initialize the Next.js App Router application, configure Tailwind CSS, and build a dashboard layout embedding TradingView Lightweight Charts.
 * **Exact files to create:**
   * pp/page.tsx
   * pp/layout.tsx
   * components/Dashboard.tsx
-  * components/Chart.tsx
+  * components/TradingViewChart.tsx
 * **Commands to run:**
   * 
 px create-next-app@latest . --typescript --tailwind --eslint --app
@@ -76,12 +76,12 @@ pm run dev
   * NEXT_PUBLIC_SUPABASE_ANON_KEY
 * **Expected output/verification:**
   * Application runs locally (localhost:3000).
-  * TradingView chart renders on the screen, fetching historical data from Supabase.
+  * TradingView Lightweight chart renders on the screen, fetching historical data from Supabase.
 * **Time estimate:** 2 hours
 * **Dependencies on previous steps:** 1. Database Setup, 2. Data Pipeline
 
 ## 5. Integration (TF.js Inference)
-* **Objective:** Integrate TensorFlow.js into the frontend to load the .json model from Supabase, process recent data points, and plot the 3-day forecast on the chart.
+* **Objective:** Integrate TensorFlow.js into the frontend to load the .json model from Supabase, process recent data points, and plot the 3-day forecast visibly on the TradingView chart for the user.
 * **Exact files to create:**
   * lib/tfjs_inference.ts
   * components/PredictionPanel.tsx
@@ -92,7 +92,7 @@ pm install @tensorflow/tfjs
   * None specific (uses public Supabase URL for bucket storage).
 * **Expected output/verification:**
   * Component logs "Model loaded successfully".
-  * Predicts 3 future price points that render continuously from the last historical data point on the chart.
+  * Predicts 3 future price points that render continuously from the last historical data point on the TradingView chart, clearly visible to the user.
 * **Time estimate:** 3-4 hours
 * **Dependencies on previous steps:** 3. Model Training, 4. Frontend Setup
 
@@ -100,7 +100,7 @@ pm install @tensorflow/tfjs
 * **Objective:** Deploy the Next.js app to Vercel and configure GitHub Actions chron jobs for daily data updates and weekly model retraining.
 * **Exact files to create:**
   * .github/workflows/daily_data.yml
-  * .github/workflows/weekly_train.yml
+  * .github/workflows/weekly_train.yml (Configured to run once a week)
 * **Commands to run:**
   * Push code to GitHub repository to trigger Vercel deployment automatically.
 * **Environment variables needed:**
@@ -109,6 +109,6 @@ pm install @tensorflow/tfjs
 * **Expected output/verification:**
   * Vercel deployment reports "Ready".
   * App is accessible on the custom domain or generic .vercel.app domain.
-  * GitHub actions pass their first manual trigger/scheduled run.
+  * GitHub actions pass their first manual trigger/scheduled run (daily data fetch and weekly retraining).
 * **Time estimate:** 1 hour
 * **Dependencies on previous steps:** All previous steps.
