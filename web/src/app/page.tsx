@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import TickerSelector from "../components/TickerSelector";
+import TimeRangeSelector, { TimeRange } from "../components/TimeRangeSelector";
 import StatBar from "../components/StatBar";
 import StockChart from "../components/StockChart";
 import IndicatorPanel from "../components/IndicatorPanel";
@@ -13,6 +14,7 @@ import { DailyPrice, ForecastResult } from "../lib/types";
 
 export default function Home() {
   const [selectedTicker, setSelectedTicker] = useState(TICKERS[0].symbol);
+  const [timeRange, setTimeRange] = useState<TimeRange>("1M");
 
   // Data State
   const [prices, setPrices] = useState<DailyPrice[]>([]);
@@ -76,14 +78,31 @@ export default function Home() {
 
   const latestData = prices.length > 0 ? prices[prices.length - 1] : null;
 
+  // Filter prices based on timeRange
+  const filteredPrices = (() => {
+    if (prices.length === 0) return [];
+
+    const countMap: Record<TimeRange, number> = {
+      "1W": 5,
+      "1M": 21,
+      "1Y": 252,
+      "5Y": 1500
+    };
+
+    return prices.slice(-countMap[timeRange]);
+  })();
+
   return (
     <div className="min-h-screen bg-[#0D1117] text-zinc-300 font-sans p-4 sm:p-8">
       <main className="mx-auto max-w-6xl space-y-6">
 
         {/* HEADER */}
-        <header className="mb-8">
-          <h1 className="text-3xl font-semibold text-zinc-100 mb-2">European Equities 3-Day ML Forecast</h1>
-          <p className="text-zinc-500 text-sm">Client-side TensorFlow.js processing on the Top 10 STOXX Europe 600 companies.</p>
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
+          <div>
+            <h1 className="text-3xl font-semibold text-zinc-100 mb-1">European Equities 3-Day ML Forecast</h1>
+            <p className="text-zinc-500 text-sm">Client-side TensorFlow.js processing on the Top 10 STOXX Europe 600 companies.</p>
+          </div>
+          <TimeRangeSelector selectedRange={timeRange} onSelect={setTimeRange} />
         </header>
 
         {/* TICKS */}
@@ -108,7 +127,7 @@ export default function Home() {
             {loadingPrices ? (
               <div className="h-[400px] w-full animate-pulse rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md"></div>
             ) : (
-              <StockChart data={prices} forecasts={forecasts} />
+              <StockChart data={filteredPrices} forecasts={forecasts} />
             )}
 
             {/* PREDICTED CARDS */}
@@ -125,7 +144,7 @@ export default function Home() {
             {loadingPrices ? (
               <div className="h-[320px] w-full animate-pulse rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md"></div>
             ) : (
-              <IndicatorPanel data={prices} />
+              <IndicatorPanel data={filteredPrices} />
             )}
           </div>
         </div>

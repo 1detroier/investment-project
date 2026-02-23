@@ -61,11 +61,30 @@ export async function runInference(ticker: string, recentData: DailyPrice[]): Pr
     const scaledFeatures = minMaxScaler(rawFeatures, minValues, maxValues);
 
     // 5. Load the model from Supabase Storage
-    // We use the public URL to directly load it into TF.js
-    const { data: publicUrlData } = supabase.storage.from("models").getPublicUrl(`${ticker}/model.json`);
-    const modelUrl = publicUrlData.publicUrl;
+    // We fetch the model.json content first to serve it to TF.js
+    const { data: modelBlob, error: modelError } = await supabase
+        .storage
+        .from("models")
+        .download(`${ticker}/model.json`);
 
-    const model = await tf.loadLayersModel(modelUrl);
+    if (modelError || !modelBlob) {
+        throw new Error(`Model file (model.json) not found for ${ticker}. Please ensure the model conversion has run.`);
+    }
+
+    // Since TF.js loadLayersModel expects a URL, we can use a custom IO handler or a Data URL
+    // For simplicity, we can use the Public URL but we just verified it exists.
+    // However, the 400 error often happens due to private buckets. 
+    // Let's try to use the signed URL if the bucket is private.
+    const { data: signedUrlData, error: signedError } = await supabase
+        .storage
+        .from("models")
+        .createSignedUrl(`${ticker}/model.json`, 60);
+
+    if (signedError || !signedUrlData) {
+        throw new Error(`Failed to generate access URL for ${ticker} model: ${signedError?.message}`);
+    }
+
+    const model = await tf.loadLayersModel(signedUrlData.signedUrl);
 
     // 6. Predict
     // Shape must be [batch_size, time_steps, features] -> [1, 7, 10]

@@ -1,0 +1,26 @@
+{
+  "ticker": "ROG.SW",
+  "features": [
+    "close",
+    "returns",
+    "volume",
+    "rsi14",
+    "macd",
+    "ma20",
+    "sma_50",
+    "bb_upper",
+    "bb_lower",
+    "volume_ma5"
+  ],
+  "window_size": 7,
+  "forecast_days": 3,
+  "lstm_units": 64,
+  "dropout": 0.2,
+  "learning_rate": 0.001,
+  "val_loss": 0.0011757444590330124,
+  "epochs_ran": 63,
+  "training_samples": 772,
+  "last_trained": "2026-02-23T11:25:58.871331",
+  "python_version": "3.13",
+  "tensorflow_version": "2.20.0"
+}

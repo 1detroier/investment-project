@@ -3,12 +3,6 @@
 .env.local
 .env.*.local
 
-# Trained model artifacts — large binary files, managed via Supabase Storage
-pipeline/models/
-models/
-*.h5
-*.pkl
-
 # Python cache
 __pycache__/
 *.pyc
