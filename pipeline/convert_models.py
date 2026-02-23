@@ -22,10 +22,29 @@ TICKERS = [
     "NOVN.SW", "ROG.SW", "TTE.PA", "SIE.DE", "OR.PA"
 ]
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print(f"CRITICAL ERROR: Supabase environment variables missing.")
+    print(f"SUPABASE_URL present: {bool(SUPABASE_URL)}")
+    print(f"SUPABASE_SERVICE_ROLE_KEY present: {bool(SUPABASE_KEY)}")
+    sys.exit(1)
+
+print(f"Initializing Supabase client with URL: {SUPABASE_URL}")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Verify bucket access early
+try:
+    buckets = supabase.storage.list_buckets()
+    bucket_names = [b.name for b in buckets]
+    if "models" not in bucket_names:
+        print(f"CRITICAL ERROR: Bucket 'models' not found. Available buckets: {bucket_names}")
+        sys.exit(1)
+    print(f"✓ Connected to Supabase and verified 'models' bucket access.")
+except Exception as e:
+    print(f"CRITICAL ERROR: Failed to connect to Supabase storage: {e}")
+    sys.exit(1)
 
 
 def convert_ticker(ticker: str, tmp_dir: str):
