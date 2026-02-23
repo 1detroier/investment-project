@@ -38,8 +38,7 @@ def convert_ticker(ticker: str, tmp_dir: str):
     h5_local = os.path.join(os.path.dirname(__file__), "models", ticker, "model.h5")
     
     if not os.path.exists(h5_local):
-        print(f"  ⚠ Local model file not found: {h5_local}")
-        return
+        raise FileNotFoundError(f"Local model file not found at: {h5_local}")
 
     # Convert to TF.js
     tfjs_path = os.path.join(ticker_dir, "tfjs")

@@ -34,6 +34,12 @@ jobs:
           pip install --upgrade pip
           pip install tensorflow==2.15.0 tensorflowjs==4.17.0 supabase python-dotenv
 
+      - name: Inspect workspace
+        run: |
+          echo "Current working directory: $(pwd)"
+          echo "Listing pipeline/models:"
+          ls -R pipeline/models
+
       - name: Convert all models to TF.js format and upload
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
