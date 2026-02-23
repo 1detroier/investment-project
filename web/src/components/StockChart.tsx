@@ -33,6 +33,8 @@ export default function StockChart({ data, forecasts }: Props) {
             timeScale: {
                 borderColor: "rgba(255, 255, 255, 0.1)",
                 timeVisible: true,
+                fixLeftEdge: true,
+                fixRightEdge: true,
             },
             rightPriceScale: {
                 borderColor: "rgba(255, 255, 255, 0.1)",

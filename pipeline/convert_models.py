@@ -32,14 +32,12 @@ def convert_ticker(ticker: str, tmp_dir: str):
     ticker_dir = os.path.join(tmp_dir, ticker)
     os.makedirs(ticker_dir, exist_ok=True)
 
-    # Download the trained .h5 model from Supabase Storage
-    h5_local = os.path.join(ticker_dir, "model.h5")
-    try:
-        data = supabase.storage.from_("models").download(f"{ticker}/model.h5")
-        with open(h5_local, "wb") as f:
-            f.write(data)
-    except Exception as e:
-        print(f"  ⚠ Could not download {ticker}/model.h5: {e}")
+    # Load the trained .h5 model from the local pipeline/models directory
+    # (Since this script runs in GitHub Actions, the files are already checked out)
+    h5_local = os.path.join(os.path.dirname(__file__), "models", ticker, "model.h5")
+    
+    if not os.path.exists(h5_local):
+        print(f"  ⚠ Local model file not found: {h5_local}")
         return
 
     # Convert to TF.js
