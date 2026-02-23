@@ -1,10 +1,13 @@
 name: Convert Models to TF.js
 
 on:
-  # Runs after the model training workflow completes
-  workflow_run:
-    workflows: ["Train ML Models"]
-    types: [completed]
+  push:
+    branches:
+      - main
+    paths:
+      - pipeline/models/**
+      - pipeline/convert_models.py
+      - .github/workflows/convert_models.yml
   # Also allows manual triggering
   workflow_dispatch:
 
