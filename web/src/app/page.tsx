@@ -30,7 +30,7 @@ export default function Home() {
     setLoadingPrices(true);
     setPriceError(null);
 
-    fetchPrices(selectedTicker, 180)
+    fetchPrices(selectedTicker, 1500)
       .then((data) => {
         if (!active) return;
         setPrices(data);
