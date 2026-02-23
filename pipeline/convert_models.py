@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 import tensorflowjs as tfjs
 import tensorflow as tf
+import sys
 
 load_dotenv()
 
@@ -51,21 +52,27 @@ def convert_ticker(ticker: str, tmp_dir: str):
     for fname in os.listdir(tfjs_path):
         fpath = os.path.join(tfjs_path, fname)
         ct = "application/json" if fname.endswith(".json") else "application/octet-stream"
+        print(f"    - Uploading {fname}...")
         with open(fpath, "rb") as f:
             supabase.storage.from_("models").upload(
                 path=f"{ticker}/{fname}",
                 file=f,
-                file_options={"upsert": "true", "content-type": ct}
+                file_options={"upsert": True, "content-type": ct}
             )
     print(f"  ✓ TF.js files uploaded for {ticker}")
 
 
-if __name__ == "__main__":
+    has_errors = False
     with tempfile.TemporaryDirectory() as tmp:
         for ticker in TICKERS:
             try:
                 convert_ticker(ticker, tmp)
             except Exception as e:
                 print(f"  ✗ Failed {ticker}: {e}")
+                has_errors = True
 
-    print("\nConversion complete.")
+    if has_errors:
+        print("\nConversion finished with ERRORS.")
+        sys.exit(1)
+    else:
+        print("\nConversion complete.")
