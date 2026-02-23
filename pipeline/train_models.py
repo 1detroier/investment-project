@@ -110,14 +110,17 @@ def create_sequences(data: np.ndarray, window_size: int, forecast_days: int):
 
 def build_model(input_shape: tuple):
     """
-    Sequential API architecture.
-    Provides explicit naming to layers to ensure TF.js compatibility.
+    Functional API architecture for maximum cross-version stability.
+    This avoids auto-deserialization quirks of Sequential between Keras 2 and 3.
     """
-    model = tf.keras.models.Sequential([
-        tf.keras.layers.LSTM(LSTM_UNITS, input_shape=input_shape, activation='tanh', name='lstm_layer'),
-        tf.keras.layers.Dropout(DROPOUT, name='dropout_layer'),
-        tf.keras.layers.Dense(FORECAST_DAYS, name='output_layer')
-    ])
+    inputs = tf.keras.layers.Input(shape=input_shape, name='input_layer')
+    
+    x = tf.keras.layers.LSTM(LSTM_UNITS, activation='tanh', name='lstm_layer')(inputs)
+    x = tf.keras.layers.Dropout(DROPOUT, name='dropout_layer')(x)
+    
+    outputs = tf.keras.layers.Dense(FORECAST_DAYS, name='output_layer')(x)
+    
+    model = tf.keras.models.Model(inputs=inputs, outputs=outputs)
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),

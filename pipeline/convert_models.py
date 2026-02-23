@@ -84,8 +84,41 @@ def convert_ticker(ticker: str, tmp_dir: str):
     tfjs_path = os.path.join(ticker_dir, "tfjs")
     os.makedirs(tfjs_path, exist_ok=True)
     
-    # Standard Keras -> TF.js conversion (no patches needed for TF 2.15)
-    model = tf.keras.models.load_model(model_local, compile=False)
+    # Standard Keras -> TF.js conversion
+    try:
+        model = tf.keras.models.load_model(model_local, compile=False)
+    except Exception as e:
+        if "Unrecognized keyword arguments" in str(e):
+            print(f"  [!] Metadata conflict detected (Keras 3 -> Keras 2). Patching H5 metadata...")
+            # Fallback for environments with version mismatches (e.g. TF 2.20 vs older tfjs)
+            import h5py
+            import json
+            with h5py.File(model_local, 'a') as f:
+                if 'model_config' in f.attrs:
+                    config = json.loads(f.attrs['model_config'])
+                    
+                    # Recursive stripper for 'batch_shape' and 'optional'
+                    def strip_k3_keys(obj):
+                        if isinstance(obj, dict):
+                            # Rename batch_shape to batch_input_shape (legacy)
+                            if "batch_shape" in obj:
+                                obj["batch_input_shape"] = obj.pop("batch_shape")
+                            # Remove 'optional' as it's not a Keras 2 parameter
+                            obj.pop("optional", None)
+                            for k, v in obj.items():
+                                strip_k3_keys(v)
+                        elif isinstance(obj, list):
+                            for item in obj:
+                                strip_k3_keys(item)
+                    
+                    strip_k3_keys(config)
+                    f.attrs['model_config'] = json.dumps(config).encode('utf-8')
+            
+            # Try loading again after patch
+            model = tf.keras.models.load_model(model_local, compile=False)
+        else:
+            raise e
+
     tfjs.converters.save_keras_model(model, tfjs_path)
     print(f"  [OK] Converted to TF.js format")
 
