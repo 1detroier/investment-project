@@ -13,21 +13,22 @@
 ## Phases
 
 ### Phase 1: Foundation (Data & Infrastructure Setup)
-**Status**: ⬜ Not Started
+**Status**: ✅ Completed
 **Objective**: Setup the Supabase database and storage buckets, initialize the Next.js frontend, and configure the GitHub repository.
 
 ### Phase 2: Data Pipeline & Model Training
-**Status**: ⬜ Not Started
+**Status**: ✅ Completed
 **Objective**: Create the Python-based data ingestion script and the LSTM training/conversion pipeline, and set up GitHub Actions cron jobs.
 
 ### Phase 3: Dashboard & Charting 
-**Status**: ⬜ Not Started
+**Status**: ✅ Completed
 **Objective**: Build the Next.js frontend featuring TradingView Lightweight Charts displaying historical quotes, MA5, MA20, RSI, and MACD.
 
 ### Phase 4: Client-Side Inference Integration
-**Status**: ⬜ Not Started
+**Status**: ✅ Completed
 **Objective**: Integrate TensorFlow.js into the frontend to load models from Supabase and perform instantaneous 3-day stock price predictions.
 
 ### Phase 5: Polish & Vercel Deployment
-**Status**: ⬜ Not Started
+**Status**: 🔵 In Progress
 **Objective**: Finalize responsive UI, add loading states, gracefully handle missing data/model fetch errors, and deploy the application to Vercel Hobby Tier.
+

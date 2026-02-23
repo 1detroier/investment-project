@@ -1,7 +1,7 @@
 ﻿# STATE.md
 
 > **Current Phase**: Phase 5: Polish & Vercel Deployment
-> **Status**: Active (resumed 2026-02-23T11:13)
+> **Status**: Active (resumed 2026-02-23T19:46)
 > **Resumption Command**: `/resume`
 
 ## Active Context
@@ -15,4 +15,5 @@
 3. App goes live.
 
 ## Open Issues
-- None at this time.
+- **Model Files Missing**: `model.json` files are missing from Supabase Storage bucket `models`. This is the cause of the 400 error.
+- **GitHub Secrets**: Potential issue with GitHub Secrets not being propagated to the environment, preventing model conversion/upload. Diagnostic tools implemented.

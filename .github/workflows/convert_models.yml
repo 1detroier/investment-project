@@ -34,11 +34,22 @@ jobs:
           pip install --upgrade pip
           pip install tensorflow==2.15.0 tensorflowjs==4.17.0 supabase python-dotenv
 
-      - name: Inspect workspace
+      - name: Diagnostic — Check Secrets (Safe)
+        shell: bash
         run: |
-          echo "Current working directory: $(pwd)"
-          echo "Listing pipeline/models:"
-          ls -R pipeline/models
+          if [ -z "$SUPABASE_URL_VAL" ]; then
+            echo "❌ ERROR: SUPABASE_URL secret is EMPTY or NOT SET."
+          else
+            echo "✅ SUPABASE_URL secret is present (Length: ${#SUPABASE_URL_VAL})"
+          fi
+          if [ -z "$SUPABASE_KEY_VAL" ]; then
+            echo "❌ ERROR: SUPABASE_SERVICE_ROLE_KEY secret is EMPTY or NOT SET."
+          else
+            echo "✅ SUPABASE_SERVICE_ROLE_KEY secret is present."
+          fi
+        env:
+          SUPABASE_URL_VAL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY_VAL: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Convert all models to TF.js format and upload
         env:

@@ -26,9 +26,19 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    print(f"CRITICAL ERROR: Supabase environment variables missing.")
-    print(f"SUPABASE_URL present: {bool(SUPABASE_URL)}")
-    print(f"SUPABASE_SERVICE_ROLE_KEY present: {bool(SUPABASE_KEY)}")
+    print("\n" + "="*50)
+    print("CRITICAL ERROR: Supabase environment variables missing.")
+    print("="*50)
+    print(f"SUPABASE_URL found: {bool(SUPABASE_URL)}")
+    print(f"SUPABASE_SERVICE_ROLE_KEY found: {bool(SUPABASE_KEY)}")
+    print("\nREQUIRED ACTIONS:")
+    if not SUPABASE_URL:
+        print("- Go to Repository Settings > Secrets and variables > Actions.")
+        print("- Create a SECRET (not a variable) named: SUPABASE_URL")
+    if not SUPABASE_KEY:
+        print("- Go to Repository Settings > Secrets and variables > Actions.")
+        print("- Create a SECRET (not a variable) named: SUPABASE_SERVICE_ROLE_KEY")
+    print("="*50 + "\n")
     sys.exit(1)
 
 print(f"Initializing Supabase client with URL: {SUPABASE_URL}")
