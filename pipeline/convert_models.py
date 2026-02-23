@@ -95,7 +95,7 @@ def convert_ticker(ticker: str, tmp_dir: str):
                 res = supabase.storage.from_("models").upload(
                     path=f"{ticker}/{fname}",
                     file=f,
-                    file_options={"upsert": True, "content-type": ct}
+                    file_options={"upsert": "true", "content-type": ct}
                 )
                 print(f"      - Response: {res}")
                 
