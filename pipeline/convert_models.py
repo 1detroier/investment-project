@@ -76,6 +76,28 @@ def convert_ticker(ticker: str, tmp_dir: str):
     tfjs.converters.save_keras_model(model, tfjs_path)
     print(f"  ✓ Converted to TF.js format")
 
+    # Patch model.json for Keras 3 compatibility with TF.js browser
+    # TF.js expects 'batchInputShape' instead of 'batch_shape' in InputLayer
+    model_json_path = os.path.join(tfjs_path, "model.json")
+    if os.path.exists(model_json_path):
+        with open(model_json_path, 'r') as f:
+            model_json = json.load(f)
+        
+        # Look for InputLayer in the model topology
+        try:
+            layers = model_json.get("modelTopology", {}).get("model_config", {}).get("config", {}).get("layers", [])
+            for layer in layers:
+                if layer.get("class_name") == "InputLayer":
+                    config = layer.get("config", {})
+                    if "batch_shape" in config:
+                        config["batchInputShape"] = config.pop("batch_shape")
+                        print(f"  ✓ Patched model.json: batch_shape -> batchInputShape")
+            
+            with open(model_json_path, 'w') as f:
+                json.dump(model_json, f)
+        except Exception as e:
+            print(f"  ⚠ Warning: Could not patch model.json: {e}")
+
     # List generated files
     generated_files = os.listdir(tfjs_path)
     print(f"  ✓ Generated: {generated_files}")
