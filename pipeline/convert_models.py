@@ -48,17 +48,30 @@ def convert_ticker(ticker: str, tmp_dir: str):
     tfjs.converters.save_keras_model(model, tfjs_path)
     print(f"  ✓ Converted to TF.js format")
 
+    # List generated files
+    generated_files = os.listdir(tfjs_path)
+    print(f"  ✓ Generated: {generated_files}")
+
     # Upload TF.js files back to Supabase Storage
-    for fname in os.listdir(tfjs_path):
+    for fname in generated_files:
         fpath = os.path.join(tfjs_path, fname)
         ct = "application/json" if fname.endswith(".json") else "application/octet-stream"
-        print(f"    - Uploading {fname}...")
+        print(f"    - Uploading {fname} ({ct})...")
         with open(fpath, "rb") as f:
-            supabase.storage.from_("models").upload(
-                path=f"{ticker}/{fname}",
-                file=f,
-                file_options={"upsert": True, "content-type": ct}
-            )
+            try:
+                res = supabase.storage.from_("models").upload(
+                    path=f"{ticker}/{fname}",
+                    file=f,
+                    file_options={"upsert": True, "content-type": ct}
+                )
+                # Check for error in response (supabase-py returns a dict or object)
+                if hasattr(res, 'error') and res.error:
+                    raise Exception(f"Upload error: {res.error}")
+                print(f"      ✓ Success")
+            except Exception as e:
+                # If upload fails because of 409 (already exists) even with upsert, or other issues
+                print(f"      ✗ Upload failed for {fname}: {e}")
+                raise e
     print(f"  ✓ TF.js files uploaded for {ticker}")
 
 
