@@ -72,7 +72,7 @@ def convert_ticker(ticker: str, tmp_dir: str):
     # Convert to TF.js
     tfjs_path = os.path.join(ticker_dir, "tfjs")
     os.makedirs(tfjs_path, exist_ok=True)
-    model = tf.keras.models.load_model(h5_local)
+    model = tf.keras.models.load_model(h5_local, compile=False)
     tfjs.converters.save_keras_model(model, tfjs_path)
     print(f"  ✓ Converted to TF.js format")
 
