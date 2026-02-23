@@ -69,6 +69,11 @@ def convert_ticker(ticker: str, tmp_dir: str):
     # List generated files
     generated_files = os.listdir(tfjs_path)
     print(f"  ✓ Generated: {generated_files}")
+    supabase.table("debug_logs").insert({
+        "ticker": ticker,
+        "event": "generated_files",
+        "data": json.dumps(generated_files)
+    }).execute()
 
     # Upload TF.js files back to Supabase Storage
     for fname in generated_files:
@@ -104,14 +109,30 @@ def convert_ticker(ticker: str, tmp_dir: str):
                                 file_options={"content-type": ct}
                             )
                             print(f"      - Update Response: {res}")
+                            supabase.table("debug_logs").insert({
+                                "ticker": ticker,
+                                "event": "upload_update",
+                                "data": f"File: {fname}, Res: {res}"
+                            }).execute()
 
                 # FINAL VERIFICATION: List files in Supabase to see if it's REALLY there
                 remote_files = supabase.storage.from_("models").list(ticker)
                 remote_filenames = [rf['name'] for rf in remote_files]
+                supabase.table("debug_logs").insert({
+                    "ticker": ticker,
+                    "event": "remote_list_verification",
+                    "data": json.dumps(remote_filenames)
+                }).execute()
+
                 if fname not in remote_filenames:
                     raise Exception(f"VERIFICATION FAILED: {fname} not found in Supabase storage after upload! Remote files: {remote_filenames}")
                 
                 print(f"      ✓ Verified: {fname} is in Supabase")
+                supabase.table("debug_logs").insert({
+                    "ticker": ticker,
+                    "event": "upload_verified",
+                    "data": f"File: {fname}"
+                }).execute()
             except Exception as e:
                 # If upload fails because of 409 (already exists) even with upsert, or other issues
                 print(f"      ✗ Upload failed for {fname}: {e}")
