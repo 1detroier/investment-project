@@ -110,20 +110,14 @@ def create_sequences(data: np.ndarray, window_size: int, forecast_days: int):
 
 def build_model(input_shape: tuple):
     """
-    Functional API architecture.
-    Provides explicit naming to layers to ensure TF.js compatibility
-    without the 'sequential/' prefix in weights.
+    Sequential API architecture.
+    Provides explicit naming to layers to ensure TF.js compatibility.
     """
-    inputs = Input(shape=input_shape, name='input_layer')
-    
-    # LSTM layer with explicit name
-    x = LSTM(LSTM_UNITS, activation='tanh', name='lstm_layer')(inputs)
-    x = Dropout(DROPOUT, name='dropout_layer')(x)
-    
-    # Output layer with explicit name
-    outputs = Dense(FORECAST_DAYS, name='output_layer')(x)
-    
-    model = Model(inputs=inputs, outputs=outputs, name='stock_prediction_model')
+    model = tf.keras.models.Sequential([
+        tf.keras.layers.LSTM(LSTM_UNITS, input_shape=input_shape, activation='tanh', name='lstm_layer'),
+        tf.keras.layers.Dropout(DROPOUT, name='dropout_layer'),
+        tf.keras.layers.Dense(FORECAST_DAYS, name='output_layer')
+    ], name='stock_prediction_model')
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
@@ -200,8 +194,8 @@ def train_for_ticker(ticker: str):
     base_path = os.path.join("models", ticker)
     os.makedirs(base_path, exist_ok=True)
 
-    # 6a. Keras model in native format
-    model_path = os.path.join(base_path, "model.keras")
+    # 6a. Keras model in classic format for stable conversion
+    model_path = os.path.join(base_path, "model.h5")
     model.save(model_path)
 
     # 6b. Scaler (needed to inverse-transform predictions in the frontend)
@@ -221,8 +215,8 @@ def train_for_ticker(ticker: str):
         "epochs_ran": epochs_ran,
         "training_samples": len(X_train),
         "last_trained": datetime.now().isoformat(),
-        "python_version": "3.13",
-        "tensorflow_version": tf.__version__,
+        "python_version": "3.11",
+        "tensorflow_version": "2.15.0",
     }
     with open(os.path.join(base_path, "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=2)
@@ -240,7 +234,7 @@ def train_for_ticker(ticker: str):
             upload_to_supabase(ticker, base_path, tfjs_path)
         except Exception as e:
             print(f"  [WARNING] TF.js conversion failed: {e}")
-            print(f"  -> .keras is saved. GitHub Actions will handle conversion.")
+            print(f"  -> .h5 is saved. GitHub Actions will handle conversion.")
     else:
         print(f"  -> TF.js conversion will run via GitHub Actions (Python 3.11).")
         # Still upload metadata and scaler so GitHub Actions knows this ticker was trained
