@@ -17,10 +17,10 @@
   "lstm_units": 64,
   "dropout": 0.2,
   "learning_rate": 0.001,
-  "val_loss": 0.001505830092355609,
-  "epochs_ran": 26,
+  "val_loss": 0.001383237773552537,
+  "epochs_ran": 30,
   "training_samples": 772,
-  "last_trained": "2026-02-23T21:12:22.665073",
+  "last_trained": "2026-02-23T21:29:48.264849",
   "python_version": "3.13",
   "tensorflow_version": "2.20.0"
 }

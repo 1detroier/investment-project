@@ -57,6 +57,31 @@ except Exception as e:
     sys.exit(1)
 
 
+def patch_input_layers(obj):
+    """
+    Recursively searches for 'InputLayer' and renames 'batch_shape' to 'batchInputShape'.
+    Keras 3 uses 'batch_shape' but TF.js Browser library requires 'batchInputShape'.
+    """
+    if isinstance(obj, dict):
+        if obj.get("class_name") == "InputLayer":
+            config = obj.get("config", {})
+            if "batch_shape" in config:
+                config["batchInputShape"] = config.pop("batch_shape")
+                return True
+        found = False
+        for key, value in obj.items():
+            if patch_input_layers(value):
+                found = True
+        return found
+    elif isinstance(obj, list):
+        found = False
+        for item in obj:
+            if patch_input_layers(item):
+                found = True
+        return found
+    return False
+
+
 def convert_ticker(ticker: str, tmp_dir: str):
     print(f"\nConverting {ticker}...")
     ticker_dir = os.path.join(tmp_dir, ticker)
@@ -77,6 +102,19 @@ def convert_ticker(ticker: str, tmp_dir: str):
     tfjs.converters.save_keras_model(model, tfjs_path)
     print(f"  [OK] Converted to TF.js format")
 
+    # Final Patch: Fix InputLayer naming for browser compatibility
+    model_json_path = os.path.join(tfjs_path, "model.json")
+    if os.path.exists(model_json_path):
+        with open(model_json_path, 'r') as f:
+            model_json = json.load(f)
+        
+        if patch_input_layers(model_json):
+            print(f"  [OK] Deep-patched model.json for browser compatibility")
+            with open(model_json_path, 'w') as f:
+                json.dump(model_json, f)
+        else:
+            print(f"  [INFO] No InputLayer found to patch in model.json")
+
     # List generated files
     generated_files = os.listdir(tfjs_path)
     print(f"  [OK] Generated: {generated_files}")
@@ -88,32 +126,26 @@ def convert_ticker(ticker: str, tmp_dir: str):
         print(f"    - Uploading {fname} ({ct})...")
         with open(fpath, "rb") as f:
             try:
-                res = supabase.storage.from_("models").upload(
+                # Upsert="true" is required as a string by the Supabase Python client
+                supabase.storage.from_("models").upload(
                     path=f"{ticker}/{fname}",
                     file=f,
                     file_options={"upsert": "true", "content-type": ct}
                 )
-                print(f"      - Response: {res}")
-                
-                # Final verification: list files to ensure successful upload
-                remote_files = supabase.storage.from_("models").list(ticker)
-                remote_filenames = [rf['name'] for rf in remote_files]
-                if fname not in remote_filenames:
-                    # If upload didn't work, try an explicit update
-                    print(f"      - Conflict? Attempting explicit 'update' for {fname}...")
+                print(f"      [OK] Uploaded {fname}")
+            except Exception as e:
+                # Fallback to update if upload fails (e.g. if upsert has issues)
+                if "already exists" in str(e).lower() or "409" in str(e):
                     with open(fpath, "rb") as f2:
                         supabase.storage.from_("models").update(
                             path=f"{ticker}/{fname}",
                             file=f2,
                             file_options={"content-type": ct}
                         )
-                
-                print(f"      [OK] Verified: {fname} is in Supabase")
-            except Exception as e:
-                # If upload fails because of 409 (already exists) even with upsert, or other issues
-                print(f"      [ERROR] Upload failed for {fname}: {e}")
-                raise e
-    print(f"  ✓ TF.js files uploaded for {ticker}")
+                    print(f"      [OK] Updated {fname}")
+                else:
+                    print(f"      [ERROR] Upload failed for {fname}: {e}")
+                    raise e
 
 
 if __name__ == "__main__":
