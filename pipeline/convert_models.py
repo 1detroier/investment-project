@@ -50,6 +50,24 @@ def patch_input_layers(obj):
         return found
     return False
 
+def normalize_names(obj):
+    """
+    Recursively strips model-level prefixes from weight and layer names.
+    Fixes: 'Provided weight data has no target variable'
+    """
+    prefixes = ["stock_prediction_model/", "sequential/", "sequential_1/", "sequential_2/"]
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if k == "name" and isinstance(v, str):
+                for p in prefixes:
+                    if v.startswith(p):
+                        obj[k] = v.replace(p, "")
+                        break
+            normalize_names(v)
+    elif isinstance(obj, list):
+        for item in obj:
+            normalize_names(item)
+
 def convert_ticker(ticker: str, tmp_dir: str):
     print(f"\nConverting {ticker}...")
     ticker_dir = os.path.join(tmp_dir, ticker)
@@ -78,9 +96,14 @@ def convert_ticker(ticker: str, tmp_dir: str):
             model_json = json.load(f)
         
         if patch_input_layers(model_json):
-            print(f"  [OK] Patched model.json for browser compatibility")
-            with open(model_json_path, 'w') as f:
-                json.dump(model_json, f)
+            print(f"  [OK] Patched InputLayer config")
+        
+        # New normalization step
+        normalize_names(model_json)
+        print(f"  [OK] Normalized weight and layer names")
+
+        with open(model_json_path, 'w') as f:
+            json.dump(model_json, f)
 
     # List generated files
     generated_files = os.listdir(tfjs_path)

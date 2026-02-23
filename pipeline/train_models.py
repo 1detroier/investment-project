@@ -117,7 +117,7 @@ def build_model(input_shape: tuple):
         tf.keras.layers.LSTM(LSTM_UNITS, input_shape=input_shape, activation='tanh', name='lstm_layer'),
         tf.keras.layers.Dropout(DROPOUT, name='dropout_layer'),
         tf.keras.layers.Dense(FORECAST_DAYS, name='output_layer')
-    ], name='stock_prediction_model')
+    ])
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
