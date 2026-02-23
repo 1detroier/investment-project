@@ -26,6 +26,30 @@ TICKERS = [
     "NOVN.SW", "ROG.SW", "TTE.PA", "SIE.DE", "OR.PA"
 ]
 
+def patch_input_layers(obj):
+    """
+    Recursively searches for 'InputLayer' and renames 'batch_shape' to 'batchInputShape'.
+    This is a defensive fix for TF.js browser compatibility.
+    """
+    if isinstance(obj, dict):
+        if obj.get("class_name") == "InputLayer":
+            config = obj.get("config", {})
+            if "batch_shape" in config:
+                config["batchInputShape"] = config.pop("batch_shape")
+                return True
+        found = False
+        for key, value in obj.items():
+            if patch_input_layers(value):
+                found = True
+        return found
+    elif isinstance(obj, list):
+        found = False
+        for item in obj:
+            if patch_input_layers(item):
+                found = True
+        return found
+    return False
+
 def convert_ticker(ticker: str, tmp_dir: str):
     print(f"\nConverting {ticker}...")
     ticker_dir = os.path.join(tmp_dir, ticker)
@@ -46,6 +70,17 @@ def convert_ticker(ticker: str, tmp_dir: str):
     model = tf.keras.models.load_model(model_local, compile=False)
     tfjs.converters.save_keras_model(model, tfjs_path)
     print(f"  [OK] Converted to TF.js format")
+
+    # Patch the model.json for browser compatibility
+    model_json_path = os.path.join(tfjs_path, "model.json")
+    if os.path.exists(model_json_path):
+        with open(model_json_path, 'r') as f:
+            model_json = json.load(f)
+        
+        if patch_input_layers(model_json):
+            print(f"  [OK] Patched model.json for browser compatibility")
+            with open(model_json_path, 'w') as f:
+                json.dump(model_json, f)
 
     # List generated files
     generated_files = os.listdir(tfjs_path)
