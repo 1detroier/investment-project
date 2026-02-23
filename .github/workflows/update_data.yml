@@ -2,10 +2,10 @@ name: Update Stock Prices (Hourly)
 
 on:
   schedule:
-    # Run every hour at minute 0 (approx)
-    # Market hours are roughly 08:00 to 18:00 UTC for European stocks
-    - cron: '0 8-18 * * 1-5'
-  workflow_dispatch: # Allows manual trigger
+    # Run every hour at minute 0
+    # European Market hours (CET 09:00 - 18:00) => UTC 08:00 - 17:00
+    - cron: '0 8-17 * * 1-5'
+  workflow_dispatch: 
 
 jobs:
   update-data:
