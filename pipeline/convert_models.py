@@ -51,7 +51,7 @@ try:
     if "models" not in bucket_names:
         print(f"CRITICAL ERROR: Bucket 'models' not found. Available buckets: {bucket_names}")
         sys.exit(1)
-    print(f"✓ Connected to Supabase and verified 'models' bucket access.")
+    print(f"[OK] Connected to Supabase and verified 'models' bucket access.")
 except Exception as e:
     print(f"CRITICAL ERROR: Failed to connect to Supabase storage: {e}")
     sys.exit(1)
@@ -62,50 +62,24 @@ def convert_ticker(ticker: str, tmp_dir: str):
     ticker_dir = os.path.join(tmp_dir, ticker)
     os.makedirs(ticker_dir, exist_ok=True)
 
-    # Load the trained .h5 model from the local pipeline/models directory
-    # (Since this script runs in GitHub Actions, the files are already checked out)
-    h5_local = os.path.join(os.path.dirname(__file__), "models", ticker, "model.h5")
+    # Load the trained .keras model from the local pipeline/models directory
+    model_local = os.path.join(os.path.dirname(__file__), "models", ticker, "model.keras")
     
-    if not os.path.exists(h5_local):
-        raise FileNotFoundError(f"Local model file not found at: {h5_local}")
+    if not os.path.exists(model_local):
+        raise FileNotFoundError(f"Local model file not found at: {model_local}")
 
     # Convert to TF.js
     tfjs_path = os.path.join(ticker_dir, "tfjs")
     os.makedirs(tfjs_path, exist_ok=True)
-    model = tf.keras.models.load_model(h5_local, compile=False)
+    
+    # Load without compile to avoid any potential metric/optimizer issues
+    model = tf.keras.models.load_model(model_local, compile=False)
     tfjs.converters.save_keras_model(model, tfjs_path)
-    print(f"  ✓ Converted to TF.js format")
-
-    # Patch model.json for Keras 3 compatibility with TF.js browser
-    # TF.js expects 'batchInputShape' instead of 'batch_shape' in InputLayer
-    model_json_path = os.path.join(tfjs_path, "model.json")
-    if os.path.exists(model_json_path):
-        with open(model_json_path, 'r') as f:
-            model_json = json.load(f)
-        
-        # Look for InputLayer in the model topology
-        try:
-            layers = model_json.get("modelTopology", {}).get("model_config", {}).get("config", {}).get("layers", [])
-            for layer in layers:
-                if layer.get("class_name") == "InputLayer":
-                    config = layer.get("config", {})
-                    if "batch_shape" in config:
-                        config["batchInputShape"] = config.pop("batch_shape")
-                        print(f"  ✓ Patched model.json: batch_shape -> batchInputShape")
-            
-            with open(model_json_path, 'w') as f:
-                json.dump(model_json, f)
-        except Exception as e:
-            print(f"  ⚠ Warning: Could not patch model.json: {e}")
+    print(f"  [OK] Converted to TF.js format")
 
     # List generated files
     generated_files = os.listdir(tfjs_path)
-    print(f"  ✓ Generated: {generated_files}")
-    supabase.table("debug_logs").insert({
-        "ticker": ticker,
-        "event": "generated_files",
-        "data": json.dumps(generated_files)
-    }).execute()
+    print(f"  [OK] Generated: {generated_files}")
 
     # Upload TF.js files back to Supabase Storage
     for fname in generated_files:
@@ -121,53 +95,23 @@ def convert_ticker(ticker: str, tmp_dir: str):
                 )
                 print(f"      - Response: {res}")
                 
-                # Check for error in response
-                error_msg = None
-                if isinstance(res, dict):
-                    if "error" in res and res["error"]:
-                        error_msg = res["error"]
-                elif hasattr(res, 'error') and res.error:
-                    error_msg = res.error
-                
-                if error_msg:
-                    print(f"      ✗ Error detected in response: {error_msg}")
-                    # If it's a 409 and we used upsert, maybe we should try 'update' explicitly
-                    if "409" in str(error_msg) or "already exists" in str(error_msg).lower():
-                        print(f"      - Attempting explicit 'update' for {fname}...")
-                        with open(fpath, "rb") as f2:
-                            res = supabase.storage.from_("models").update(
-                                path=f"{ticker}/{fname}",
-                                file=f2,
-                                file_options={"content-type": ct}
-                            )
-                            print(f"      - Update Response: {res}")
-                            supabase.table("debug_logs").insert({
-                                "ticker": ticker,
-                                "event": "upload_update",
-                                "data": f"File: {fname}, Res: {res}"
-                            }).execute()
-
-                # FINAL VERIFICATION: List files in Supabase to see if it's REALLY there
+                # Final verification: list files to ensure successful upload
                 remote_files = supabase.storage.from_("models").list(ticker)
                 remote_filenames = [rf['name'] for rf in remote_files]
-                supabase.table("debug_logs").insert({
-                    "ticker": ticker,
-                    "event": "remote_list_verification",
-                    "data": json.dumps(remote_filenames)
-                }).execute()
-
                 if fname not in remote_filenames:
-                    raise Exception(f"VERIFICATION FAILED: {fname} not found in Supabase storage after upload! Remote files: {remote_filenames}")
+                    # If upload didn't work, try an explicit update
+                    print(f"      - Conflict? Attempting explicit 'update' for {fname}...")
+                    with open(fpath, "rb") as f2:
+                        supabase.storage.from_("models").update(
+                            path=f"{ticker}/{fname}",
+                            file=f2,
+                            file_options={"content-type": ct}
+                        )
                 
-                print(f"      ✓ Verified: {fname} is in Supabase")
-                supabase.table("debug_logs").insert({
-                    "ticker": ticker,
-                    "event": "upload_verified",
-                    "data": f"File: {fname}"
-                }).execute()
+                print(f"      [OK] Verified: {fname} is in Supabase")
             except Exception as e:
                 # If upload fails because of 409 (already exists) even with upsert, or other issues
-                print(f"      ✗ Upload failed for {fname}: {e}")
+                print(f"      [ERROR] Upload failed for {fname}: {e}")
                 raise e
     print(f"  ✓ TF.js files uploaded for {ticker}")
 

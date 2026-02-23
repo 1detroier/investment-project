@@ -4,8 +4,8 @@ import joblib
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import Input, LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.preprocessing import MinMaxScaler
 from datetime import datetime
@@ -34,16 +34,16 @@ load_dotenv()
 #
 # To add a new company: simply add its yfinance ticker to this list
 TICKERS = [
-    "ASML.AS",     # ASML            — Tech / Semiconductors
-    "SAP.DE",      # SAP             — Tech / Software
-    "NESN.SW",     # Nestlé          — Consumer Staples
-    "MC.PA",       # LVMH            — Luxury / Consumer Discretionary
-    "NOVO-B.CO",   # Novo Nordisk    — Healthcare / Pharma
-    "NOVN.SW",     # Novartis        — Healthcare / Pharma
-    "ROG.SW",      # Roche           — Healthcare / Pharma
-    "TTE.PA",      # TotalEnergies   — Energy
-    "SIE.DE",      # Siemens         — Industrials
-    "OR.PA",       # L'Oréal         — Consumer Staples / Beauty
+    "ASML.AS",     # ASML            - Tech / Semiconductors
+    "SAP.DE",      # SAP             - Tech / Software
+    "NESN.SW",     # Nestlé          - Consumer Staples
+    "MC.PA",       # LVMH            - Luxury / Consumer Discretionary
+    "NOVO-B.CO",   # Novo Nordisk    - Healthcare / Pharma
+    "NOVN.SW",     # Novartis        - Healthcare / Pharma
+    "ROG.SW",      # Roche           - Healthcare / Pharma
+    "TTE.PA",      # TotalEnergies   - Energy
+    "SIE.DE",      # Siemens         - Industrials
+    "OR.PA",       # L'Oréal         - Consumer Staples / Beauty
 ]
 
 # ─── 10 Technical Indicator Features ──────────────────────────────────────────
@@ -110,19 +110,21 @@ def create_sequences(data: np.ndarray, window_size: int, forecast_days: int):
 
 def build_model(input_shape: tuple):
     """
-    Single-layer LSTM architecture (chosen to avoid overfitting on ~1200 training samples).
-    
-    Deeper networks (2+ LSTM layers) tend to overfit on small financial datasets.
-    64 units is a well-validated sweet spot for single-stock sequence tasks.
+    Functional API architecture.
+    Provides explicit naming to layers to ensure TF.js compatibility
+    without the 'sequential/' prefix in weights.
     """
-    model = Sequential([
-        LSTM(LSTM_UNITS, input_shape=input_shape, activation='tanh'),
-        Dropout(DROPOUT),    # Regularization to reduce overfitting
-        Dense(FORECAST_DAYS) # 3 outputs: Day1, Day2, Day3 price predictions
-    ])
+    inputs = Input(shape=input_shape, name='input_layer')
+    
+    # LSTM layer with explicit name
+    x = LSTM(LSTM_UNITS, activation='tanh', name='lstm_layer')(inputs)
+    x = Dropout(DROPOUT, name='dropout_layer')(x)
+    
+    # Output layer with explicit name
+    outputs = Dense(FORECAST_DAYS, name='output_layer')(x)
+    
+    model = Model(inputs=inputs, outputs=outputs, name='stock_prediction_model')
 
-    # Loss weights: Day1 gets full weight, later days get less (they have more uncertainty)
-    # Standard MSE compile is used; loss_weights are applied per-sample during training
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
         loss='mse'
@@ -192,15 +194,15 @@ def train_for_ticker(ticker: str):
 
     val_loss = min(history.history['val_loss'])
     epochs_ran = len(history.history['val_loss'])
-    print(f"\n  ✓ Done — Best val MSE: {val_loss:.6f} (stopped at epoch {epochs_ran})")
+    print(f"\n  [OK] Done — Best val MSE: {val_loss:.6f} (stopped at epoch {epochs_ran})")
 
     # 6. Save artifacts locally
     base_path = os.path.join("models", ticker)
     os.makedirs(base_path, exist_ok=True)
 
-    # 6a. Keras model in .h5 format (required by tensorflowjs_converter)
-    model_path = os.path.join(base_path, "model.h5")
-    model.save(model_path, save_format='h5')
+    # 6a. Keras model in native format
+    model_path = os.path.join(base_path, "model.keras")
+    model.save(model_path)
 
     # 6b. Scaler (needed to inverse-transform predictions in the frontend)
     scaler_path = os.path.join(base_path, "scaler.pkl")
@@ -225,7 +227,7 @@ def train_for_ticker(ticker: str):
     with open(os.path.join(base_path, "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=2)
 
-    print(f"  ✓ Saved: {model_path}, scaler, metadata")
+    print(f"  [OK] Saved: {model_path}, scaler, metadata")
 
     # 7. TF.js Conversion (if library is available locally)
     tfjs_path = os.path.join(base_path, "tfjs")
@@ -234,13 +236,13 @@ def train_for_ticker(ticker: str):
             shutil.rmtree(tfjs_path)
         try:
             tfjs.converters.save_keras_model(model, tfjs_path)
-            print(f"  ✓ Converted to TF.js format locally.")
+            print(f"  [OK] Converted to TF.js format locally.")
             upload_to_supabase(ticker, base_path, tfjs_path)
         except Exception as e:
-            print(f"  ⚠ TF.js conversion failed: {e}")
-            print(f"  → .h5 is saved. GitHub Actions will handle conversion.")
+            print(f"  [WARNING] TF.js conversion failed: {e}")
+            print(f"  -> .keras is saved. GitHub Actions will handle conversion.")
     else:
-        print(f"  → TF.js conversion will run via GitHub Actions (Python 3.11).")
+        print(f"  -> TF.js conversion will run via GitHub Actions (Python 3.11).")
         # Still upload metadata and scaler so GitHub Actions knows this ticker was trained
         upload_artifacts_only(ticker, base_path)
 
@@ -257,7 +259,7 @@ def upload_artifacts_only(ticker: str, base_path: str):
                 file=f,
                 file_options={"upsert": "true", "content-type": ct}
             )
-    print(f"  ✓ Metadata uploaded for {ticker}")
+    print(f"  [OK] Metadata uploaded for {ticker}")
 
 
 def upload_to_supabase(ticker: str, base_path: str, tfjs_path: str):
@@ -286,7 +288,7 @@ def upload_to_supabase(ticker: str, base_path: str, tfjs_path: str):
                 file_options={"upsert": "true", "content-type": ct}
             )
     
-    print(f"  ✓ All artifacts uploaded for {ticker}")
+    print(f"  [OK] All artifacts uploaded for {ticker}")
 
 
 # ─── Entry Point ──────────────────────────────────────────────────────────────
@@ -300,15 +302,15 @@ if __name__ == "__main__":
             train_for_ticker(ticker)
             success.append(ticker)
         except Exception as e:
-            print(f"\n  ✗ Failed to train {ticker}: {e}")
+            print(f"\n  [ERROR] Failed to train {ticker}: {e}")
             import traceback
             traceback.print_exc()
             failed.append(ticker)
 
     print(f"\n{'='*60}")
     print(f"  Training Complete")
-    print(f"  ✓ Success: {', '.join(success) if success else 'none'}")
-    print(f"  ✗ Failed:  {', '.join(failed) if failed else 'none'}")
+    print(f"  [OK] Success: {', '.join(success) if success else 'none'}")
+    print(f"  [ERROR] Failed:  {', '.join(failed) if failed else 'none'}")
     print(f"{'='*60}")
     
     if not TFJS_AVAILABLE:
