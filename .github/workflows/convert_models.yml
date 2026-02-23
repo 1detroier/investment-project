@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - pipeline/models/**
+      - pipeline/models/**/*.h5
       - pipeline/convert_models.py
       - .github/workflows/convert_models.yml
   # Also allows manual triggering
@@ -13,47 +13,43 @@ on:
 
 jobs:
   convert:
-    name: Convert .h5 models to TF.js
+    name: Convert models to TF.js
     runs-on: ubuntu-latest
-    # Use Python 3.11 — required because tensorflowjs does not support Python 3.12+
-    strategy:
-      matrix:
-        python-version: ["3.11"]
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
-      - name: Install conversion dependencies
-        run: |
-          pip install --upgrade pip
-          pip install tensorflow==2.16.1 tensorflowjs==4.22.0 supabase python-dotenv pandas yfinance scikit-learn numpy ta
+    - name: Diagnostic — Check Secrets (Safe)
+      shell: bash
+      run: |
+        if [ -z "$SUPABASE_URL_VAL" ]; then
+          echo "❌ ERROR: SUPABASE_URL secret is EMPTY or NOT SET."
+        else
+          echo "✅ SUPABASE_URL secret is present (Length: ${#SUPABASE_URL_VAL})"
+        fi
+        if [ -z "$SUPABASE_KEY_VAL" ]; then
+          echo "❌ ERROR: SUPABASE_SERVICE_ROLE_KEY secret is EMPTY or NOT SET."
+        else
+          echo "✅ SUPABASE_KEY_VAL secret is present."
+        fi
+      env:
+        SUPABASE_URL_VAL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY_VAL: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
-      - name: Diagnostic — Check Secrets (Safe)
-        shell: bash
-        run: |
-          if [ -z "$SUPABASE_URL_VAL" ]; then
-            echo "❌ ERROR: SUPABASE_URL secret is EMPTY or NOT SET."
-          else
-            echo "✅ SUPABASE_URL secret is present (Length: ${#SUPABASE_URL_VAL})"
-          fi
-          if [ -z "$SUPABASE_KEY_VAL" ]; then
-            echo "❌ ERROR: SUPABASE_SERVICE_ROLE_KEY secret is EMPTY or NOT SET."
-          else
-            echo "✅ SUPABASE_SERVICE_ROLE_KEY secret is present."
-          fi
-        env:
-          SUPABASE_URL_VAL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY_VAL: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-
-      - name: Convert all models to TF.js format and upload
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          python pipeline/convert_models.py
+    - name: Convert all models to TF.js format and upload
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      run: |
+        python pipeline/convert_models.py

@@ -10,6 +10,7 @@ import ForecastCard from "../components/ForecastCard";
 import { TICKERS } from "../lib/constants";
 import { fetchPrices } from "../lib/fetchPrices";
 import { runInference } from "../lib/runInference";
+import { fetchLivePrice } from "../lib/fetchLivePrice";
 import { DailyPrice, ForecastResult } from "../lib/types";
 
 export default function Home() {
@@ -25,6 +26,9 @@ export default function Home() {
   const [forecasts, setForecasts] = useState<ForecastResult[] | null>(null);
   const [loadingForecast, setLoadingForecast] = useState(true);
   const [forecastError, setForecastError] = useState<string | null>(null);
+
+  // Real-Time State
+  const [livePrice, setLivePrice] = useState<Partial<DailyPrice> | null>(null);
 
   // 1. Fetch historical OHLCV data
   useEffect(() => {
@@ -47,6 +51,53 @@ export default function Home() {
     return () => { active = false; };
   }, [selectedTicker]);
 
+  // 1b. Poll for Live Price every 60 seconds
+  useEffect(() => {
+    let active = true;
+
+    const updateLivePrice = async () => {
+      const latest = await fetchLivePrice(selectedTicker);
+      if (active && latest) {
+        setLivePrice(latest);
+      }
+    };
+
+    updateLivePrice();
+    const interval = setInterval(updateLivePrice, 60000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [selectedTicker]);
+
+  // 1c. Merge Historical + Live for full context
+  const augmentedPrices = (() => {
+    if (prices.length === 0) return [];
+    if (!livePrice || !livePrice.close) return prices;
+
+    const lastHistorical = prices[prices.length - 1];
+
+    // If live price is for the same day as historical, update historical
+    if (livePrice.date === lastHistorical.date) {
+      const updated = [...prices];
+      updated[updated.length - 1] = {
+        ...lastHistorical,
+        ...livePrice,
+        // Recalculate returns if possible or just use the price
+        close: livePrice.close as number
+      };
+      return updated;
+    }
+
+    // If it's a new day, append
+    if (new Date(livePrice.date as string) > new Date(lastHistorical.date)) {
+      return [...prices, { ...lastHistorical, ...livePrice } as DailyPrice];
+    }
+
+    return prices;
+  })();
+
   // 2. Run TF.js inference once prices are loaded
   useEffect(() => {
     if (prices.length === 0 || loadingPrices) return;
@@ -57,7 +108,7 @@ export default function Home() {
 
     // Minor delay to ensure UI threads rendering main chart priority
     const timer = setTimeout(() => {
-      runInference(selectedTicker, prices)
+      runInference(selectedTicker, augmentedPrices)
         .then((res) => {
           if (!active) return;
           setForecasts(res);
@@ -74,13 +125,13 @@ export default function Home() {
       active = false;
       clearTimeout(timer);
     };
-  }, [selectedTicker, prices, loadingPrices]);
+  }, [selectedTicker, augmentedPrices, loadingPrices]);
 
-  const latestData = prices.length > 0 ? prices[prices.length - 1] : null;
+  const latestData = augmentedPrices.length > 0 ? augmentedPrices[augmentedPrices.length - 1] : null;
 
   // Filter prices based on timeRange
   const filteredPrices = (() => {
-    if (prices.length === 0) return [];
+    if (augmentedPrices.length === 0) return [];
 
     const countMap: Record<TimeRange, number> = {
       "1W": 5,
@@ -89,7 +140,7 @@ export default function Home() {
       "5Y": 1500
     };
 
-    return prices.slice(-countMap[timeRange]);
+    return augmentedPrices.slice(-countMap[timeRange]);
   })();
 
   return (
@@ -99,8 +150,24 @@ export default function Home() {
         {/* HEADER */}
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
           <div>
-            <h1 className="text-3xl font-semibold text-zinc-100 mb-1">European Equities 3-Day ML Forecast</h1>
-            <p className="text-zinc-500 text-sm">Client-side TensorFlow.js processing on the Top 10 STOXX Europe 600 companies.</p>
+            <h1 className="text-3xl font-semibold text-zinc-100 mb-1">Top 10 STOXX Europe 600 companies</h1>
+            <div className="flex items-center gap-3">
+              <p className="text-zinc-500 text-sm">Real-time ML stock forecasting dashboard.</p>
+              {livePrice && (
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Live Data
+                  </span>
+                  <div className="flex flex-col text-[10px] text-zinc-600 leading-tight">
+                    <span>System: {new Date().toLocaleTimeString()}</span>
+                    {livePrice.timestamp && (
+                      <span>Market: {new Date(livePrice.timestamp).toLocaleTimeString()}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <TimeRangeSelector selectedRange={timeRange} onSelect={setTimeRange} />
         </header>

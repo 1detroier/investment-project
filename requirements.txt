@@ -1,0 +1,9 @@
+tensorflow==2.15.0
+tensorflowjs==4.17.0
+pandas
+scikit-learn
+joblib
+yfinance
+python-dotenv
+supabase
+numpy<2.0.0

@@ -17,6 +17,7 @@ export interface DailyPrice {
   volatility: number | null;
   sma_50: number | null;
   volume_ma5: number | null;
+  timestamp?: number;
 }
 
 export interface ForecastResult {

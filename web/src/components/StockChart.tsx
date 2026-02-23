@@ -35,6 +35,24 @@ export default function StockChart({ data, forecasts }: Props) {
                 timeVisible: true,
                 fixLeftEdge: true,
                 fixRightEdge: true,
+                tickMarkFormatter: (time: any, tickMarkType: number) => {
+                    const date = new Date(time);
+
+                    // Lightweight-charts tickMarkType enum:
+                    // 0: Year, 1: Month, 2: Day, 3: Hour...
+
+                    if (tickMarkType === 0) { // Year change
+                        return date.getFullYear().toString();
+                    }
+                    if (tickMarkType === 1) { // Month change
+                        return date.toLocaleString('default', { month: 'short' });
+                    }
+                    if (tickMarkType === 2) { // Day change
+                        return date.getDate().toString();
+                    }
+
+                    return date.toLocaleDateString();
+                }
             },
             rightPriceScale: {
                 borderColor: "rgba(255, 255, 255, 0.1)",
