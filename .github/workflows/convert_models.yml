@@ -1,0 +1,39 @@
+name: Convert Models to TF.js
+
+on:
+  # Runs after the model training workflow completes
+  workflow_run:
+    workflows: ["Train ML Models"]
+    types: [completed]
+  # Also allows manual triggering
+  workflow_dispatch:
+
+jobs:
+  convert:
+    name: Convert .h5 models to TF.js
+    runs-on: ubuntu-latest
+    # Use Python 3.11 — required because tensorflowjs does not support Python 3.12+
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install conversion dependencies
+        run: |
+          pip install --upgrade pip
+          pip install tensorflow==2.15.0 tensorflowjs==4.17.0 supabase python-dotenv
+
+      - name: Convert all models to TF.js format and upload
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          python pipeline/convert_models.py
