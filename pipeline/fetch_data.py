@@ -1,6 +1,7 @@
 import os
 import yfinance as yf
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -51,10 +52,10 @@ def fetch_and_store_data(tickers, lookback_years=5):
             if isinstance(df.columns, pd.MultiIndex):
                  df.columns = [c[0] for c in df.columns]
                 
-            # Compute technical indicators
+            # Compute technical indicators (Tier 1 & 2)
             df = compute_indicators(df)
             
-            # Drop NaN rows resulting from indicator windows (e.g. MA20 needs 20 days)
+            # Drop NaN rows resulting from indicator windows (e.g. SMA_50 needs 50 days)
             df = df.dropna()
             
             # Reset index to make 'Date' a column
@@ -76,13 +77,13 @@ def fetch_and_store_data(tickers, lookback_years=5):
                     "close": float(row['Close']) if row['Close'] is not None else None,
                     "volume": int(row['Volume']) if row['Volume'] is not None else None,
                     "returns": float(row['returns']) if row['returns'] is not None else None,
-                    "ma5": float(row['ma5']) if row['ma5'] is not None else None,
                     "ma20": float(row['ma20']) if row['ma20'] is not None else None,
+                    "sma_50": float(row['sma_50']) if row['sma_50'] is not None else None,
                     "rsi14": float(row['rsi14']) if row['rsi14'] is not None else None,
                     "macd": float(row['macd']) if row['macd'] is not None else None,
                     "bb_upper": float(row['bb_upper']) if row['bb_upper'] is not None else None,
                     "bb_lower": float(row['bb_lower']) if row['bb_lower'] is not None else None,
-                    "volatility": float(row['volatility']) if row['volatility'] is not None else None
+                    "volume_ma5": float(row['volume_ma5']) if row['volume_ma5'] is not None else None
                 }
                 records.append(record)
             
