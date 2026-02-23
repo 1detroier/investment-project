@@ -150,6 +150,7 @@ def convert_ticker(ticker: str, tmp_dir: str):
     print(f"  ✓ TF.js files uploaded for {ticker}")
 
 
+if __name__ == "__main__":
     has_errors = False
     with tempfile.TemporaryDirectory() as tmp:
         for ticker in TICKERS:
