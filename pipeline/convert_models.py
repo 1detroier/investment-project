@@ -63,10 +63,19 @@ def convert_ticker(ticker: str, tmp_dir: str):
                     file=f,
                     file_options={"upsert": True, "content-type": ct}
                 )
-                # Check for error in response (supabase-py returns a dict or object)
-                if hasattr(res, 'error') and res.error:
-                    raise Exception(f"Upload error: {res.error}")
-                print(f"      ✓ Success")
+                
+                # Robust error checking for different supabase-py versions
+                error_msg = None
+                if isinstance(res, dict):
+                    if "error" in res and res["error"]:
+                        error_msg = res["error"]
+                elif hasattr(res, 'error') and res.error:
+                    error_msg = res.error
+                
+                if error_msg:
+                    raise Exception(f"Upload error for {fname}: {error_msg}")
+                
+                print(f"      ✓ Success: {res}")
             except Exception as e:
                 # If upload fails because of 409 (already exists) even with upsert, or other issues
                 print(f"      ✗ Upload failed for {fname}: {e}")
