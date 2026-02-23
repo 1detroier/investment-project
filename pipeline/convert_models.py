@@ -82,8 +82,9 @@ def convert_ticker(ticker: str, tmp_dir: str):
                     file=f,
                     file_options={"upsert": True, "content-type": ct}
                 )
+                print(f"      - Response: {res}")
                 
-                # Robust error checking for different supabase-py versions
+                # Check for error in response
                 error_msg = None
                 if isinstance(res, dict):
                     if "error" in res and res["error"]:
@@ -92,9 +93,25 @@ def convert_ticker(ticker: str, tmp_dir: str):
                     error_msg = res.error
                 
                 if error_msg:
-                    raise Exception(f"Upload error for {fname}: {error_msg}")
+                    print(f"      ✗ Error detected in response: {error_msg}")
+                    # If it's a 409 and we used upsert, maybe we should try 'update' explicitly
+                    if "409" in str(error_msg) or "already exists" in str(error_msg).lower():
+                        print(f"      - Attempting explicit 'update' for {fname}...")
+                        with open(fpath, "rb") as f2:
+                            res = supabase.storage.from_("models").update(
+                                path=f"{ticker}/{fname}",
+                                file=f2,
+                                file_options={"content-type": ct}
+                            )
+                            print(f"      - Update Response: {res}")
+
+                # FINAL VERIFICATION: List files in Supabase to see if it's REALLY there
+                remote_files = supabase.storage.from_("models").list(ticker)
+                remote_filenames = [rf['name'] for rf in remote_files]
+                if fname not in remote_filenames:
+                    raise Exception(f"VERIFICATION FAILED: {fname} not found in Supabase storage after upload! Remote files: {remote_filenames}")
                 
-                print(f"      ✓ Success: {res}")
+                print(f"      ✓ Verified: {fname} is in Supabase")
             except Exception as e:
                 # If upload fails because of 409 (already exists) even with upsert, or other issues
                 print(f"      ✗ Upload failed for {fname}: {e}")
