@@ -8,6 +8,7 @@ python-dotenv
 tensorflow==2.15.0
 keras==2.15.0
 h5py
+tensorflowjs
 joblib
 # tensorflowjs is problematic on Windows due to uvloop dependency.
 # We will install it separately with --no-deps or use a different conversion method.
