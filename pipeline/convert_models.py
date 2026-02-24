@@ -95,28 +95,42 @@ def convert_ticker(ticker: str, tmp_dir: str):
             import json
             with h5py.File(model_local, 'a') as f:
                 if 'model_config' in f.attrs:
-                    config = json.loads(f.attrs['model_config'])
-                    
-                    # Recursive stripper for Keras 3 specific keys
-                    def strip_k3_keys(obj):
-                        if isinstance(obj, dict):
-                            # Rename batch_shape to batch_input_shape (legacy)
-                            if "batch_shape" in obj:
-                                obj["batch_input_shape"] = obj.pop("batch_shape")
-                            
-                            # Remove Keras 3 specific parameters not recognized by Keras 2
-                            k3_keys = ["optional", "dtype_policy", "DTypePolicy"]
-                            for key in k3_keys:
-                                obj.pop(key, None)
+                    try:
+                        config_str = f.attrs['model_config']
+                        if hasattr(config_str, 'decode'):
+                            config_str = config_str.decode('utf-8')
+                        config = json.loads(config_str)
+                        
+                        # Recursive stripper for Keras 3 specific keys
+                        def strip_k3_keys(obj):
+                            if isinstance(obj, dict):
+                                # Rename batch_shape to batch_input_shape (legacy)
+                                if "batch_shape" in obj:
+                                    obj["batch_input_shape"] = obj.pop("batch_shape")
                                 
-                            for k, v in obj.items():
-                                strip_k3_keys(v)
-                        elif isinstance(obj, list):
-                            for item in obj:
-                                strip_k3_keys(item)
-                    
-                    strip_k3_keys(config)
-                    f.attrs['model_config'] = json.dumps(config).encode('utf-8')
+                                # Remove Keras 3 specific parameters not recognized by Keras 2
+                                k3_keys = [
+                                    "optional", "dtype_policy", "DTypePolicy", 
+                                    "trainable", "dtype", "ragged", "sparse"
+                                ]
+                                for key in k3_keys:
+                                    obj.pop(key, None)
+                                    
+                                for k, v in list(obj.items()):
+                                    # Recursively clean nested dicts or configs
+                                    if k == "config" and isinstance(v, dict):
+                                        strip_k3_keys(v)
+                                    elif isinstance(v, (dict, list)):
+                                        strip_k3_keys(v)
+                            elif isinstance(obj, list):
+                                for item in obj:
+                                    strip_k3_keys(item)
+                        
+                        strip_k3_keys(config)
+                        f.attrs['model_config'] = json.dumps(config).encode('utf-8')
+                        print(f"  [OK] Stripped Keras 3 metadata from {ticker}")
+                    except Exception as patch_err:
+                        print(f"  [WARNING] Failed to patch H5 metadata: {patch_err}")
             
             # Try loading again after patch
             model = tf.keras.models.load_model(model_local, compile=False)

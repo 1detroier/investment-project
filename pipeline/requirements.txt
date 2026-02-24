@@ -5,7 +5,9 @@ scikit-learn
 numpy
 ta
 python-dotenv
-tensorflow
+tensorflow==2.15.0
+keras==2.15.0
+h5py
 joblib
 # tensorflowjs is problematic on Windows due to uvloop dependency.
 # We will install it separately with --no-deps or use a different conversion method.

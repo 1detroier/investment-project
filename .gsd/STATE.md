@@ -1,18 +1,18 @@
 ﻿# STATE.md
 
 > **Current Phase**: Phase 5: Polish & Vercel Deployment
-> **Status**: Active (resumed 2026-02-23T19:46)
+> **Status**: Active (resumed 2026-02-24T00:50)
 > **Resumption Command**: `/resume`
 
 ## Active Context
-- **Phase 4 Completed**: The React Next.js 16 frontend is fully implemented. It features TradingView Lightweight charts for OHLCV visualization and client-side TF.js inference for instantaneous 3-day forecasting.
-- **Git State**: Local repository is fully synced. Code pushed to `origin/main`.
-- **Frontend Build**: Zero TypeScript errors.
+- **Real-Time Improvements**: Data pipeline updated to 30m intervals (budget optimized). Dashboard shows ticking clock and delay indicator.
+- **Model Conversion**: Fixed 400 errors by pinning TF 2.15.0 and implementing recursive metadata stripping in `convert_models.py`.
+- **UX Polish**: Added loading skeletons to forecast cards for smoother ticker switching.
 
 ## Next Step
-1. User deploys the app by connecting the GitHub repository to a Vercel Hobby Tier project.
-2. User configures the Vercel Environment variables (`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
-3. App goes live.
+1. **Push to GitHub**: Push these changes to the `main` branch to trigger the `Convert Models to TF.js` workflow.
+2. **Verify Models**: Check Supabase Storage after the workflow finishes to ensure `model.json` files are present.
+3. **Vercel Deployment**: Once models are verified, the dashboard should be fully operational on Vercel.
 
 ## Open Issues
 - **Model Files Missing**: `model.json` files are missing from Supabase Storage bucket `models`. This is the cause of the 400 error.

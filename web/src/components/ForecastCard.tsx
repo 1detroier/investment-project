@@ -7,7 +7,20 @@ interface Props {
     error: string | null;
 }
 
-export default function ForecastCard({ forecasts, latestData, loading, error }: Props) {
+export default function ForecastCard({ latestData, forecasts, loading, error }: Props) {
+    if (loading) {
+        return (
+            <div className="rounded-2xl border border-white/5 bg-white/5 p-6 backdrop-blur-md animate-pulse">
+                <div className="h-4 w-32 bg-white/10 rounded mb-4"></div>
+                <div className="grid grid-cols-3 gap-4">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-24 bg-white/5 rounded-xl"></div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     if (error) {
         return (
             <div className="w-full rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-red-400">
@@ -17,17 +30,8 @@ export default function ForecastCard({ forecasts, latestData, loading, error }: 
         );
     }
 
-    if (loading || !forecasts || !latestData) {
-        return (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {[1, 2, 3].map(i => (
-                    <div key={i} className="flex h-32 animate-pulse flex-col items-center justify-center rounded-2xl bg-white/5 p-6 border border-white/5">
-                        <div className="h-4 w-16 bg-white/10 rounded mb-4"></div>
-                        <div className="h-8 w-24 bg-white/10 rounded"></div>
-                    </div>
-                ))}
-            </div>
-        );
+    if (!forecasts || !latestData) {
+        return null; // Should not happen with current page.tsx logic
     }
 
     let previousClose = latestData.close;

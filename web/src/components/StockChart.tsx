@@ -3,13 +3,15 @@
 import { useEffect, useRef } from "react";
 import { createChart, IChartApi, ColorType, CandlestickData, Time, LineData, HistogramData } from "lightweight-charts";
 import { DailyPrice, ForecastResult } from "../lib/types";
+import { TimeRange } from "./TimeRangeSelector";
 
 interface Props {
     data: DailyPrice[];
     forecasts: ForecastResult[] | null;
+    timeRange: TimeRange;
 }
 
-export default function StockChart({ data, forecasts }: Props) {
+export default function StockChart({ data, forecasts, timeRange }: Props) {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
 
@@ -38,17 +40,20 @@ export default function StockChart({ data, forecasts }: Props) {
                 tickMarkFormatter: (time: any, tickMarkType: number) => {
                     const date = new Date(time);
 
-                    // Lightweight-charts tickMarkType enum:
-                    // 0: Year, 1: Month, 2: Day, 3: Hour...
+                    if (timeRange === "5Y") {
+                        if (tickMarkType === 0) return date.getFullYear().toString(); // Year
+                        if (tickMarkType === 1) return date.toLocaleString('default', { month: 'short' }); // Month
+                    }
 
-                    if (tickMarkType === 0) { // Year change
-                        return date.getFullYear().toString();
+                    if (timeRange === "1Y" || timeRange === "1M") {
+                        if (tickMarkType === 1) return date.toLocaleString('default', { month: 'short' }); // Month
+                        if (tickMarkType === 2) return date.getDate().toString(); // Day
                     }
-                    if (tickMarkType === 1) { // Month change
-                        return date.toLocaleString('default', { month: 'short' });
-                    }
-                    if (tickMarkType === 2) { // Day change
-                        return date.getDate().toString();
+
+                    if (timeRange === "1W") {
+                        const day = date.toLocaleDateString('default', { weekday: 'short' });
+                        const dayNum = date.getDate();
+                        return `${day} ${dayNum}`;
                     }
 
                     return date.toLocaleDateString();
