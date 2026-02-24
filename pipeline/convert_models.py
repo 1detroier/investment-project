@@ -111,7 +111,8 @@ def convert_ticker(ticker: str, tmp_dir: str):
                                 # Remove Keras 3 specific parameters not recognized by Keras 2
                                 k3_keys = [
                                     "optional", "dtype_policy", "DTypePolicy", 
-                                    "trainable", "dtype", "ragged", "sparse"
+                                    "trainable", "dtype", "ragged", "sparse",
+                                    "quantization_config"
                                 ]
                                 for key in k3_keys:
                                     obj.pop(key, None)
