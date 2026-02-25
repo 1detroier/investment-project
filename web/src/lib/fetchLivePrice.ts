@@ -15,21 +15,29 @@ export async function fetchLivePrice(ticker: string): Promise<Partial<DailyPrice
         if (!response.ok) return null;
 
         const json = await response.json();
-        const result = json.chart.result[0];
+        const result = json?.chart?.result?.[0];
+        if (!result) return null;
+
         const meta = result.meta;
         const quote = result.indicators.quote[0];
 
-        const lastIndex = quote.close.length - 1;
+        const closes: Array<number | null> = quote?.close ?? [];
+        let lastIndex = closes.length - 1;
+        while (lastIndex >= 0 && (closes[lastIndex] === null || closes[lastIndex] === undefined)) {
+            lastIndex -= 1;
+        }
+
+        if (lastIndex < 0 || !meta?.regularMarketTime) return null;
 
         return {
             ticker: ticker,
             date: new Date(meta.regularMarketTime * 1000).toISOString().split('T')[0],
             timestamp: meta.regularMarketTime * 1000,
-            open: quote.open[lastIndex],
-            high: quote.high[lastIndex],
-            low: quote.low[lastIndex],
-            close: quote.close[lastIndex],
-            volume: quote.volume[lastIndex]
+            open: quote.open?.[lastIndex] ?? null,
+            high: quote.high?.[lastIndex] ?? null,
+            low: quote.low?.[lastIndex] ?? null,
+            close: quote.close?.[lastIndex] ?? null,
+            volume: quote.volume?.[lastIndex] ?? null
         };
     } catch (error) {
         console.error("Error fetching live price:", error);

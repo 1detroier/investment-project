@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import TickerSelector from "../components/TickerSelector";
 import TimeRangeSelector, { TimeRange } from "../components/TimeRangeSelector";
 import StatBar from "../components/StatBar";
@@ -58,30 +58,63 @@ export default function Home() {
     return () => { active = false; };
   }, [selectedTicker]);
 
-  // 1b. Poll for Live Price every 60 seconds
+  // 1b. Poll for live price with adaptive cadence (15s visible / 45s hidden)
   useEffect(() => {
     let active = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let inFlight = false;
+
+    setLivePrice(null);
+
+    const schedule = () => {
+      if (!active) return;
+      const isVisible = document.visibilityState === "visible";
+      const intervalMs = isVisible ? 15000 : 45000;
+      timeoutId = setTimeout(updateLivePrice, intervalMs);
+    };
 
     const updateLivePrice = async () => {
-      const latest = await fetchLivePrice(selectedTicker);
-      if (active && latest) {
-        setLivePrice(latest);
+      if (inFlight || !active) {
+        schedule();
+        return;
+      }
+
+      inFlight = true;
+      try {
+        const latest = await fetchLivePrice(selectedTicker);
+        if (active && latest && typeof latest.close === "number") {
+          setLivePrice((previous) => {
+            const sameTick =
+              previous?.timestamp === latest.timestamp &&
+              previous?.close === latest.close;
+            return sameTick ? previous : latest;
+          });
+        }
+      } finally {
+        inFlight = false;
+        schedule();
       }
     };
 
+    const handleVisibilityChange = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      schedule();
+    };
+
     updateLivePrice();
-    const interval = setInterval(updateLivePrice, 60000);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       active = false;
-      clearInterval(interval);
+      if (timeoutId) clearTimeout(timeoutId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [selectedTicker]);
 
   // 1c. Merge Historical + Live for full context
-  const augmentedPrices = (() => {
+  const augmentedPrices = useMemo(() => {
     if (prices.length === 0) return [];
-    if (!livePrice || !livePrice.close) return prices;
+    if (!livePrice || typeof livePrice.close !== "number") return prices;
 
     const lastHistorical = prices[prices.length - 1];
 
@@ -103,9 +136,10 @@ export default function Home() {
     }
 
     return prices;
-  })();
+  }, [prices, livePrice]);
 
-  // 2. Run TF.js inference once prices are loaded
+  // 2. Run TF.js inference once historical prices are loaded.
+  // Live ticks update the chart quickly without repeatedly re-running the model.
   useEffect(() => {
     if (prices.length === 0 || loadingPrices) return;
 
@@ -115,7 +149,7 @@ export default function Home() {
 
     // Minor delay to ensure UI threads rendering main chart priority
     const timer = setTimeout(() => {
-      runInference(selectedTicker, augmentedPrices)
+      runInference(selectedTicker, prices)
         .then((res) => {
           if (!active) return;
           setForecasts(res);
@@ -132,7 +166,7 @@ export default function Home() {
       active = false;
       clearTimeout(timer);
     };
-  }, [selectedTicker, augmentedPrices, loadingPrices]);
+  }, [selectedTicker, prices, loadingPrices]);
 
   const latestData = augmentedPrices.length > 0 ? augmentedPrices[augmentedPrices.length - 1] : null;
 
