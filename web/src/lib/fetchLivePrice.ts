@@ -9,9 +9,15 @@ export async function fetchLivePrice(ticker: string): Promise<Partial<DailyPrice
         // We use a CORS-friendly proxy or a direct public API if available.
         // For this demo, we can simulate or use an unofficial YF query.
         // NOTE: In a production app, you would use an API like AlphaVantage, Polygon.io, or your own backend.
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d`;
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1m&range=1d`;
 
-        const response = await fetch(url);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+
+        const response = await fetch(url, {
+            cache: "no-store",
+            signal: controller.signal,
+        }).finally(() => clearTimeout(timeout));
         if (!response.ok) return null;
 
         const json = await response.json();

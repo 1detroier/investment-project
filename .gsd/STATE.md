@@ -17,3 +17,12 @@
 ## Open Issues
 - **Model Files Missing**: `model.json` files are missing from Supabase Storage bucket `models`. This is the cause of the 400 error.
 - **GitHub Secrets**: Potential issue with GitHub Secrets not being propagated to the environment, preventing model conversion/upload. Diagnostic tools implemented.
+
+## 2026-02-25 Update
+- **Near Real-Time Web**: Live polling tuned for lower cost (30s market-visible, 2m hidden, 10m off-hours) and safer live fetch behavior.
+- **GitHub Actions Cost Control**: Data update workflow moved to once-per-weekday run (`17:20 UTC`) with concurrency cancellation.
+- **Traceability**: All OpenCode changes + rollback instructions are documented in `decisions_opencode.md`.
+
+### Next Step
+1. Validate dashboard behavior on Vercel (ticker switch, delay indicator, off-hours cadence).
+2. Open PR from `feature/realtime-live-price-updates` into `main`.

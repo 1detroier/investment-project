@@ -58,18 +58,30 @@ export default function Home() {
     return () => { active = false; };
   }, [selectedTicker]);
 
-  // 1b. Poll for live price with adaptive cadence (15s visible / 45s hidden)
+  // 1b. Poll live price with low-cost adaptive cadence
   useEffect(() => {
     let active = true;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let inFlight = false;
 
+    const getPollIntervalMs = () => {
+      const now = new Date();
+      const utcDay = now.getUTCDay();
+      const utcHour = now.getUTCHours();
+      const isWeekday = utcDay >= 1 && utcDay <= 5;
+      const isMarketHoursUtc = utcHour >= 8 && utcHour <= 16;
+      const isVisible = document.visibilityState === "visible";
+
+      if (!isVisible) return 120000;
+      if (isWeekday && isMarketHoursUtc) return 30000;
+      return 600000;
+    };
+
     setLivePrice(null);
 
     const schedule = () => {
       if (!active) return;
-      const isVisible = document.visibilityState === "visible";
-      const intervalMs = isVisible ? 15000 : 45000;
+      const intervalMs = getPollIntervalMs();
       timeoutId = setTimeout(updateLivePrice, intervalMs);
     };
 
