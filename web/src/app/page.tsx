@@ -181,6 +181,10 @@ export default function Home() {
   }, [selectedTicker, prices, loadingPrices]);
 
   const latestData = augmentedPrices.length > 0 ? augmentedPrices[augmentedPrices.length - 1] : null;
+  const dataTimestamp = typeof livePrice?.timestamp === "number" ? livePrice.timestamp : null;
+  const dataClock = dataTimestamp ? new Date(dataTimestamp) : null;
+  const delayMinutes = dataTimestamp ? Math.floor((Date.now() - dataTimestamp) / 60000) : null;
+  const isDataDelayed = delayMinutes !== null && delayMinutes > 15;
 
   // Filter prices based on timeRange
   const filteredPrices = (() => {
@@ -204,33 +208,26 @@ export default function Home() {
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
           <div>
             <h1 className="text-3xl font-semibold text-zinc-100 mb-1">Top 10 STOXX Europe 600 companies</h1>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <p className="text-zinc-500 text-sm">Real-time ML stock forecasting dashboard.</p>
-              {livePrice && (
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col text-[10px] text-zinc-500 leading-tight">
-                      <span className="flex items-center gap-1">
-                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Sync: {new Date(livePrice.timestamp || "").toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      {livePrice.timestamp && (
-                        <span className={`flex items-center gap-1 ${Date.now() - (livePrice.timestamp as number) > 900000 ? "text-amber-500" : "text-emerald-500/80"}`}>
-                          <span className={`w-1 h-1 rounded-full ${Date.now() - (livePrice.timestamp as number) > 900000 ? "bg-amber-500" : "bg-emerald-500"}`}></span>
-                          Delay: {Math.floor((Date.now() - (livePrice.timestamp as number)) / 60000)}m
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="h-8 w-[1px] bg-white/5 hidden sm:block"></div>
-                  <div className="flex flex-col text-right">
-                    <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Local Time</span>
-                    <span className="text-sm font-mono text-zinc-300 tabular-nums">{systemTime.toLocaleTimeString()}</span>
-                  </div>
+              <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                <div className="flex flex-col text-right">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Actual Time</span>
+                  <span className="text-sm font-mono text-zinc-300 tabular-nums">{systemTime.toLocaleTimeString()}</span>
                 </div>
-              )}
+                <div className="h-8 w-[1px] bg-white/10"></div>
+                <div className="flex flex-col text-right">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Data Time</span>
+                  <span className="text-sm font-mono text-zinc-300 tabular-nums">
+                    {dataClock ? dataClock.toLocaleTimeString() : "--:--:--"}
+                  </span>
+                  {delayMinutes !== null && (
+                    <span className={`text-[10px] leading-tight ${isDataDelayed ? "text-amber-500" : "text-emerald-500/80"}`}>
+                      Delay: {delayMinutes}m
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
           <TimeRangeSelector selectedRange={timeRange} onSelect={setTimeRange} />

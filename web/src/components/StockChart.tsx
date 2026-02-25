@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { createChart, IChartApi, ColorType, CandlestickData, Time, LineData, HistogramData } from "lightweight-charts";
+import { createChart, IChartApi, ColorType, CandlestickData, Time, LineData, HistogramData, BusinessDay } from "lightweight-charts";
 import { DailyPrice, ForecastResult } from "../lib/types";
 import { TimeRange } from "./TimeRangeSelector";
 
@@ -9,6 +9,14 @@ interface Props {
     data: DailyPrice[];
     forecasts: ForecastResult[] | null;
     timeRange: TimeRange;
+}
+
+function toDate(time: Time): Date {
+    if (typeof time === "string") return new Date(`${time}T00:00:00Z`);
+    if (typeof time === "number") return new Date(time * 1000);
+
+    const businessTime = time as BusinessDay;
+    return new Date(Date.UTC(businessTime.year, businessTime.month - 1, businessTime.day));
 }
 
 export default function StockChart({ data, forecasts, timeRange }: Props) {
@@ -37,26 +45,17 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
                 timeVisible: true,
                 fixLeftEdge: true,
                 fixRightEdge: true,
-                tickMarkFormatter: (time: any, tickMarkType: number) => {
-                    const date = new Date(time);
-
-                    if (timeRange === "5Y") {
-                        if (tickMarkType === 0) return date.getFullYear().toString(); // Year
-                        if (tickMarkType === 1) return date.toLocaleString('default', { month: 'short' }); // Month
-                    }
-
-                    if (timeRange === "1Y" || timeRange === "1M") {
-                        if (tickMarkType === 1) return date.toLocaleString('default', { month: 'short' }); // Month
-                        if (tickMarkType === 2) return date.getDate().toString(); // Day
-                    }
+                tickMarkFormatter: (time: Time) => {
+                    const date = toDate(time);
+                    const day = date.toLocaleDateString("en-GB", { day: "2-digit" });
+                    const month = date.toLocaleDateString("en-GB", { month: "short" });
+                    const year = date.toLocaleDateString("en-GB", { year: "numeric" });
 
                     if (timeRange === "1W") {
-                        const day = date.toLocaleDateString('default', { weekday: 'short' });
-                        const dayNum = date.getDate();
-                        return `${day} ${dayNum}`;
+                        return `${day}\n${month}`;
                     }
 
-                    return date.toLocaleDateString();
+                    return `${day}\n${month}\n${year}`;
                 }
             },
             rightPriceScale: {
@@ -159,7 +158,7 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
             window.removeEventListener("resize", handleResize);
             chart.remove();
         };
-    }, [data, forecasts]);
+    }, [data, forecasts, timeRange]);
 
     return (
         <div className="h-[400px] w-full rounded-2xl border border-white/5 bg-white/5 p-4 backdrop-blur-md">
