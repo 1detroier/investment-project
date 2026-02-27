@@ -2,7 +2,7 @@
 
 import React from "react";
 
-export type TimeRange = "1W" | "1M" | "1Y" | "5Y";
+export type TimeRange = "1D" | "1W" | "1M" | "1Y" | "5Y";
 
 interface Props {
     selectedRange: TimeRange;
@@ -10,7 +10,14 @@ interface Props {
 }
 
 export default function TimeRangeSelector({ selectedRange, onSelect }: Props) {
-    const ranges: TimeRange[] = ["1W", "1M", "1Y", "5Y"];
+    const ranges: TimeRange[] = ["1D", "1W", "1M", "1Y", "5Y"];
+    const labels: Record<TimeRange, string> = {
+        "1D": "Today",
+        "1W": "1W",
+        "1M": "1M",
+        "1Y": "1Y",
+        "5Y": "5Y"
+    };
 
     return (
         <div className="flex space-x-2 bg-[#161B22] p-1 rounded-xl border border-white/5 shadow-sm">
@@ -23,7 +30,7 @@ export default function TimeRangeSelector({ selectedRange, onSelect }: Props) {
                             : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
                         }`}
                 >
-                    {range}
+                    {labels[range]}
                 </button>
             ))}
         </div>

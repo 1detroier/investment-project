@@ -11,6 +11,7 @@ import { TICKERS } from "../lib/constants";
 import { fetchPrices } from "../lib/fetchPrices";
 import { runInference } from "../lib/runInference";
 import { fetchLivePrice } from "../lib/fetchLivePrice";
+import { fetchIntradayPrices } from "../lib/fetchIntradayPrices";
 import { DailyPrice, ForecastResult } from "../lib/types";
 
 export default function Home() {
@@ -21,6 +22,9 @@ export default function Home() {
   const [prices, setPrices] = useState<DailyPrice[]>([]);
   const [loadingPrices, setLoadingPrices] = useState(true);
   const [priceError, setPriceError] = useState<string | null>(null);
+  const [intradayPrices, setIntradayPrices] = useState<DailyPrice[]>([]);
+  const [loadingIntraday, setLoadingIntraday] = useState(false);
+  const [intradayError, setIntradayError] = useState<string | null>(null);
 
   // Inference State
   const [forecasts, setForecasts] = useState<ForecastResult[] | null>(null);
@@ -30,11 +34,16 @@ export default function Home() {
   // Real-Time State
   const [livePrice, setLivePrice] = useState<Partial<DailyPrice> | null>(null);
   const [systemTime, setSystemTime] = useState(new Date());
+  const [mounted, setMounted] = useState(false);
 
   // Clock effect
   useEffect(() => {
     const timer = setInterval(() => setSystemTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    setMounted(true);
   }, []);
 
   // 1. Fetch historical OHLCV data
@@ -58,6 +67,75 @@ export default function Home() {
     return () => { active = false; };
   }, [selectedTicker]);
 
+  // 1a. Fetch intraday candles for the Today range (1m cadence during market hours)
+  useEffect(() => {
+    if (timeRange !== "1D") return;
+
+    let active = true;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let inFlight = false;
+    let hasLoadedOnce = false;
+
+    const getPollIntervalMs = () => {
+      const now = new Date();
+      const utcDay = now.getUTCDay();
+      const utcHour = now.getUTCHours();
+      const isWeekday = utcDay >= 1 && utcDay <= 5;
+      const isMarketHoursUtc = utcHour >= 8 && utcHour <= 16;
+      const isVisible = document.visibilityState === "visible";
+
+      if (!isVisible) return 300000;
+      if (isWeekday && isMarketHoursUtc) return 60000;
+      return 600000;
+    };
+
+    const schedule = () => {
+      if (!active) return;
+      timeoutId = setTimeout(updateIntraday, getPollIntervalMs());
+    };
+
+    const updateIntraday = async () => {
+      if (inFlight || !active) {
+        schedule();
+        return;
+      }
+
+      inFlight = true;
+      try {
+        if (!hasLoadedOnce) setLoadingIntraday(true);
+        setIntradayError(null);
+        const data = await fetchIntradayPrices(selectedTicker);
+        if (!active) return;
+        setIntradayPrices(data);
+        setLoadingIntraday(false);
+        hasLoadedOnce = true;
+      } catch (error) {
+        if (!active) return;
+        setIntradayError(error instanceof Error ? error.message : "Failed to fetch intraday data");
+        setLoadingIntraday(false);
+      } finally {
+        inFlight = false;
+        schedule();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      schedule();
+    };
+
+    setIntradayPrices([]);
+    updateIntraday();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      active = false;
+      if (timeoutId) clearTimeout(timeoutId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      setLoadingIntraday(false);
+    };
+  }, [selectedTicker, timeRange]);
+
   // 1b. Poll live price with low-cost adaptive cadence
   useEffect(() => {
     let active = true;
@@ -72,8 +150,8 @@ export default function Home() {
       const isMarketHoursUtc = utcHour >= 8 && utcHour <= 16;
       const isVisible = document.visibilityState === "visible";
 
-      if (!isVisible) return 120000;
-      if (isWeekday && isMarketHoursUtc) return 30000;
+      if (!isVisible) return 300000;
+      if (isWeekday && isMarketHoursUtc) return 60000;
       return 600000;
     };
 
@@ -180,17 +258,11 @@ export default function Home() {
     };
   }, [selectedTicker, prices, loadingPrices]);
 
-  const latestData = augmentedPrices.length > 0 ? augmentedPrices[augmentedPrices.length - 1] : null;
-  const dataTimestamp = typeof livePrice?.timestamp === "number" ? livePrice.timestamp : null;
-  const dataClock = dataTimestamp ? new Date(dataTimestamp) : null;
-  const delayMinutes = dataTimestamp ? Math.floor((Date.now() - dataTimestamp) / 60000) : null;
-  const isDataDelayed = delayMinutes !== null && delayMinutes > 15;
-
-  // Filter prices based on timeRange
-  const filteredPrices = (() => {
+  const historicalSlice = (() => {
     if (augmentedPrices.length === 0) return [];
+    if (timeRange === "1D") return augmentedPrices;
 
-    const countMap: Record<TimeRange, number> = {
+    const countMap: Record<Exclude<TimeRange, "1D">, number> = {
       "1W": 5,
       "1M": 21,
       "1Y": 252,
@@ -199,6 +271,18 @@ export default function Home() {
 
     return augmentedPrices.slice(-countMap[timeRange]);
   })();
+
+  const chartData = timeRange === "1D" ? intradayPrices : historicalSlice;
+  const latestData = chartData.length > 0 ? chartData[chartData.length - 1] : null;
+  const intradayLatest = intradayPrices.length > 0 ? intradayPrices[intradayPrices.length - 1] : null;
+  const dataTimestamp =
+    typeof intradayLatest?.timestamp === "number"
+      ? intradayLatest.timestamp
+      : (typeof livePrice?.timestamp === "number" ? livePrice.timestamp : null);
+  const dataClock = dataTimestamp ? new Date(dataTimestamp) : null;
+  const delayMinutes = dataTimestamp ? Math.floor((Date.now() - dataTimestamp) / 60000) : null;
+  const isDataDelayed = delayMinutes !== null && delayMinutes > 15;
+  const chartLoading = timeRange === "1D" ? loadingIntraday : loadingPrices;
 
   return (
     <div className="min-h-screen bg-[#0D1117] text-zinc-300 font-sans p-4 sm:p-8">
@@ -213,13 +297,15 @@ export default function Home() {
               <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                 <div className="flex flex-col text-right">
                   <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Actual Time</span>
-                  <span className="text-sm font-mono text-zinc-300 tabular-nums">{systemTime.toLocaleTimeString()}</span>
+                  <span className="text-sm font-mono text-zinc-300 tabular-nums">
+                    {mounted ? systemTime.toLocaleTimeString() : "--:--:--"}
+                  </span>
                 </div>
                 <div className="h-8 w-[1px] bg-white/10"></div>
                 <div className="flex flex-col text-right">
                   <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Data Time</span>
                   <span className="text-sm font-mono text-zinc-300 tabular-nums">
-                    {dataClock ? dataClock.toLocaleTimeString() : "--:--:--"}
+                    {mounted && dataClock ? dataClock.toLocaleTimeString() : "--:--:--"}
                   </span>
                   {delayMinutes !== null && (
                     <span className={`text-[10px] leading-tight ${isDataDelayed ? "text-amber-500" : "text-emerald-500/80"}`}>
@@ -249,13 +335,19 @@ export default function Home() {
           </div>
         )}
 
+        {intradayError && timeRange === "1D" && (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-amber-400 text-sm">
+            {intradayError}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3 space-y-6">
             {/* MAIN CHART */}
-            {loadingPrices ? (
+            {chartLoading ? (
               <div className="h-[400px] w-full animate-pulse rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md"></div>
             ) : (
-              <StockChart data={filteredPrices} forecasts={forecasts} timeRange={timeRange} />
+              <StockChart data={chartData} forecasts={forecasts} timeRange={timeRange} />
             )}
 
             {/* PREDICTED CARDS */}
@@ -269,10 +361,14 @@ export default function Home() {
 
           <div className="lg:col-span-1">
             {/* OSCILLATORS */}
-            {loadingPrices ? (
+            {chartLoading ? (
               <div className="h-[320px] w-full animate-pulse rounded-2xl border border-white/5 bg-white/5 backdrop-blur-md"></div>
+            ) : timeRange === "1D" ? (
+              <div className="h-[320px] w-full rounded-2xl border border-white/5 bg-white/5 p-6 backdrop-blur-md text-sm text-zinc-400">
+                Indicators are shown for daily ranges (1W, 1M, 1Y, 5Y).
+              </div>
             ) : (
-              <IndicatorPanel data={filteredPrices} />
+              <IndicatorPanel data={chartData} />
             )}
           </div>
         </div>

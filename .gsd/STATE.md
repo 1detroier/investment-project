@@ -26,3 +26,14 @@
 ### Next Step
 1. Validate dashboard behavior on Vercel (ticker switch, delay indicator, off-hours cadence).
 2. Open PR from `feature/realtime-live-price-updates` into `main`.
+
+## 2026-02-26 Update
+- **CORS Mitigation**: Added server-side Yahoo intraday proxy endpoint to avoid browser CORS blocks in production.
+- **Today Range**: Added `1D`/Today chart range backed by 1-minute intraday candles with adaptive polling.
+- **Hydration Stability**: Time display is mount-gated to avoid React hydration mismatch error `#418`.
+- **Analytics**: Integrated Vercel Analytics to measure DAU/session behavior and tune polling cadence if needed.
+
+### Next Step
+1. Validate `/api/intraday?ticker=ASML.AS` in Vercel and confirm no browser CORS errors.
+2. Confirm Today chart updates each minute during market hours and falls back gracefully off-hours.
+3. Check Vercel Analytics dashboard after traffic starts to determine if `1m` should remain or move to `5m`.

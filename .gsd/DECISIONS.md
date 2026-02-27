@@ -10,3 +10,10 @@
 ## Notes
 
 - Full implementation details and rollback paths are documented in `decisions_opencode.md`.
+
+## 2026-02-26
+
+| Decision | Choice | Why | Affects |
+|----------|--------|-----|---------|
+| Intraday delivery model | Serve Today (`1D`) candles via Next.js server route proxy to Yahoo | Avoid browser CORS failures while keeping near-real-time UX | `web/src/app/api/intraday/route.ts`, `web/src/lib/fetchIntradayPrices.ts`, `web/src/lib/fetchLivePrice.ts`, `web/src/app/page.tsx` |
+| Free-tier telemetry baseline | Add Vercel Analytics in root layout | Measure DAU and engagement to tune `1m` vs `5m` polling with real usage data | `web/src/app/layout.tsx`, `web/package.json` |

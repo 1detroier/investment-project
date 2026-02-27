@@ -47,9 +47,14 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
                 fixRightEdge: true,
                 tickMarkFormatter: (time: Time) => {
                     const date = toDate(time);
+                    const hour = date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
                     const day = date.toLocaleDateString("en-GB", { day: "2-digit" });
                     const month = date.toLocaleDateString("en-GB", { month: "short" });
                     const year = date.toLocaleDateString("en-GB", { year: "numeric" });
+
+                    if (timeRange === "1D") {
+                        return hour;
+                    }
 
                     if (timeRange === "1W") {
                         return `${day}\n${month}`;
@@ -75,7 +80,7 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
         });
 
         const candleData: CandlestickData[] = data.map((d) => ({
-            time: d.date as Time,
+            time: (typeof d.timestamp === "number" ? Math.floor(d.timestamp / 1000) : d.date) as Time,
             open: d.open || d.close,
             high: d.high || d.close,
             low: d.low || d.close,
@@ -96,7 +101,7 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
         });
 
         const volData: HistogramData[] = data.map((d) => ({
-            time: d.date as Time,
+            time: (typeof d.timestamp === "number" ? Math.floor(d.timestamp / 1000) : d.date) as Time,
             value: d.volume || 0,
             color: (d.returns || 0) >= 0 ? "rgba(0, 229, 160, 0.4)" : "rgba(255, 69, 96, 0.4)",
         }));
@@ -111,7 +116,10 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
         });
         const ma5Data: LineData[] = data
             .filter((d) => d.ma5 !== null)
-            .map((d) => ({ time: d.date as Time, value: d.ma5 as number }));
+            .map((d) => ({
+                time: (typeof d.timestamp === "number" ? Math.floor(d.timestamp / 1000) : d.date) as Time,
+                value: d.ma5 as number
+            }));
         ma5Series.setData(ma5Data);
 
         // MA20 Overlay
@@ -123,7 +131,10 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
         });
         const ma20Data: LineData[] = data
             .filter((d) => d.ma20 !== null)
-            .map((d) => ({ time: d.date as Time, value: d.ma20 as number }));
+            .map((d) => ({
+                time: (typeof d.timestamp === "number" ? Math.floor(d.timestamp / 1000) : d.date) as Time,
+                value: d.ma20 as number
+            }));
         ma20Series.setData(ma20Data);
 
         // Forecast Overlay
@@ -139,7 +150,10 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
             if (data.length > 0) {
                 const lastData = data[data.length - 1];
                 forecastSeries.setData([
-                    { time: lastData.date as Time, value: lastData.close },
+                    {
+                        time: (typeof lastData.timestamp === "number" ? Math.floor(lastData.timestamp / 1000) : lastData.date) as Time,
+                        value: lastData.close
+                    },
                     ...forecasts.map((f) => ({ time: f.date as Time, value: f.predictedClose })),
                 ]);
             }
