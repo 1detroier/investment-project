@@ -11,8 +11,8 @@ export default function ForecastCard({ latestData, forecasts, loading, error }: 
     if (loading) {
         return (
             <div className="rounded-2xl border border-white/5 bg-white/5 p-6 backdrop-blur-md animate-pulse">
-                <div className="h-4 w-32 bg-white/10 rounded mb-4"></div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="h-4 w-64 bg-white/10 rounded mb-4"></div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     {[1, 2, 3].map((i) => (
                         <div key={i} className="h-24 bg-white/5 rounded-xl"></div>
                     ))}
@@ -34,29 +34,21 @@ export default function ForecastCard({ latestData, forecasts, loading, error }: 
         return null; // Should not happen with current page.tsx logic
     }
 
-    let previousClose = latestData.close;
-
     return (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {forecasts.map((f, i) => {
+        <div className="rounded-2xl border border-white/5 bg-white/5 p-6 backdrop-blur-md">
+            <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">
+                Prediction for the next three days
+            </h3>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {forecasts.map((f, i) => {
+                const previousClose = i === 0 ? latestData.close : forecasts[i - 1].predictedClose;
                 const diff = f.predictedClose - previousClose;
-                const percentChange = (diff / previousClose) * 100;
+                const percentChange = previousClose === 0 ? 0 : (diff / previousClose) * 100;
                 const isUp = diff >= 0;
 
-                previousClose = f.predictedClose; // For day n+1 calculation
-
                 return (
-                    <div key={f.date} className="relative overflow-hidden rounded-2xl border border-white/5 bg-white/5 p-6 backdrop-blur-md transition-all hover:bg-white/10">
-                        <div className="absolute -right-4 -top-4 opacity-[0.03]">
-                            <svg width="100" height="100" viewBox="0 0 24 24" fill="currentColor">
-                                {isUp ? (
-                                    <path d="M12 2L2 22h20L12 2z" />
-                                ) : (
-                                    <path d="M12 22L22 2H2l10 20z" />
-                                )}
-                            </svg>
-                        </div>
-
+                    <div key={f.date} className="rounded-2xl border border-white/5 bg-[#0D1117]/40 p-6 transition-all hover:bg-white/5">
                         <span className="text-xs text-zinc-500 uppercase tracking-widest flex items-center gap-2">
                             Day {i + 1} <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full">{f.date}</span>
                         </span>
@@ -71,6 +63,7 @@ export default function ForecastCard({ latestData, forecasts, loading, error }: 
                     </div>
                 );
             })}
+            </div>
         </div>
     );
 }

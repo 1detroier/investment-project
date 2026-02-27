@@ -1,15 +1,18 @@
-name: Update Stock Prices (Hourly)
+name: Update Stock Prices (Low-Cost Daily)
 
 on:
   schedule:
-    # Run every 30 minutes during European market hours (approx 08:00 to 17:00 UTC)
-    - cron: '*/30 8-16 * * 1-5'
+    # Run once per weekday after market hours to preserve free-tier minutes.
+    - cron: '20 17 * * 1-5'
   workflow_dispatch: # Allows manual trigger
 
 jobs:
   update-data:
     name: Fetch and Store Latest Prices
     runs-on: ubuntu-latest
+    concurrency:
+      group: update-data
+      cancel-in-progress: true
 
     steps:
     - uses: actions/checkout@v4
