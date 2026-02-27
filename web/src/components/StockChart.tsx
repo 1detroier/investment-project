@@ -11,6 +11,19 @@ interface Props {
     timeRange: TimeRange;
 }
 
+function toFiniteNumber(value: unknown): number | null {
+	if (typeof value === "number") {
+		return Number.isFinite(value) ? value : null;
+	}
+
+	if (typeof value === "string" && value.trim() !== "") {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+
+	return null;
+}
+
 function getSeriesTime(point: DailyPrice, timeRange: TimeRange): Time {
 	if (timeRange === "1D") {
 		if (typeof point.timestamp === "number") {
@@ -101,13 +114,26 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
             wickDownColor: "#FF4560",
         });
 
-        const candleData: CandlestickData[] = data.map((d) => ({
-            time: getSeriesTime(d, timeRange),
-            open: d.open || d.close,
-            high: d.high || d.close,
-            low: d.low || d.close,
-            close: d.close,
-        }));
+        const candleData: CandlestickData[] = data
+			.map((d) => {
+				const close = toFiniteNumber(d.close);
+				const open = toFiniteNumber(d.open) ?? close;
+				const high = toFiniteNumber(d.high) ?? close;
+				const low = toFiniteNumber(d.low) ?? close;
+
+				if (close === null || open === null || high === null || low === null) {
+					return null;
+				}
+
+				return {
+					time: getSeriesTime(d, timeRange),
+					open,
+					high,
+					low,
+					close,
+				};
+			})
+			.filter((point): point is CandlestickData => point !== null);
         mainSeries.setData(candleData);
 
         // Volume Series
@@ -122,11 +148,16 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
             scaleMargins: { top: 0.8, bottom: 0 },
         });
 
-        const volData: HistogramData[] = data.map((d) => ({
-            time: getSeriesTime(d, timeRange),
-            value: d.volume || 0,
-            color: (d.returns || 0) >= 0 ? "rgba(0, 229, 160, 0.4)" : "rgba(255, 69, 96, 0.4)",
-        }));
+        const volData: HistogramData[] = data.map((d) => {
+			const volume = toFiniteNumber(d.volume) ?? 0;
+			const returns = toFiniteNumber(d.returns) ?? 0;
+
+			return {
+				time: getSeriesTime(d, timeRange),
+				value: volume,
+				color: returns >= 0 ? "rgba(0, 229, 160, 0.4)" : "rgba(255, 69, 96, 0.4)",
+			};
+		});
         volumeSeries.setData(volData);
 
         // MA5 Overlay
@@ -137,11 +168,16 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
             priceLineVisible: false,
         });
         const ma5Data: LineData[] = data
-            .filter((d) => d.ma5 !== null)
-            .map((d) => ({
-                time: getSeriesTime(d, timeRange),
-                value: d.ma5 as number
-            }));
+			.map((d) => {
+				const ma5 = toFiniteNumber(d.ma5);
+				if (ma5 === null) return null;
+
+				return {
+					time: getSeriesTime(d, timeRange),
+					value: ma5,
+				};
+			})
+			.filter((point): point is LineData => point !== null);
         ma5Series.setData(ma5Data);
 
         // MA20 Overlay
@@ -152,11 +188,16 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
             priceLineVisible: false,
         });
         const ma20Data: LineData[] = data
-            .filter((d) => d.ma20 !== null)
-            .map((d) => ({
-                time: getSeriesTime(d, timeRange),
-                value: d.ma20 as number
-            }));
+			.map((d) => {
+				const ma20 = toFiniteNumber(d.ma20);
+				if (ma20 === null) return null;
+
+				return {
+					time: getSeriesTime(d, timeRange),
+					value: ma20,
+				};
+			})
+			.filter((point): point is LineData => point !== null);
         ma20Series.setData(ma20Data);
 
         // Forecast Overlay
@@ -170,15 +211,31 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
 
             // Connect forecast to last known close
             if (data.length > 0) {
-                const lastData = data[data.length - 1];
-                forecastSeries.setData([
-                    {
-                        time: getSeriesTime(lastData, timeRange),
-                        value: lastData.close
-                    },
-                    ...forecasts.map((f) => ({ time: getForecastTime(f.date, timeRange), value: f.predictedClose })),
-                ]);
-            }
+				const lastData = data[data.length - 1];
+				const lastClose = toFiniteNumber(lastData.close);
+
+				if (lastClose !== null) {
+					const safeForecasts = forecasts
+						.map((f) => {
+							const predictedClose = toFiniteNumber(f.predictedClose);
+							if (predictedClose === null) return null;
+
+							return {
+								time: getForecastTime(f.date, timeRange),
+								value: predictedClose,
+							};
+						})
+						.filter((point): point is LineData => point !== null);
+
+					forecastSeries.setData([
+						{
+							time: getSeriesTime(lastData, timeRange),
+							value: lastClose,
+						},
+						...safeForecasts,
+					]);
+				}
+			}
         }
 
         // Responsive resize

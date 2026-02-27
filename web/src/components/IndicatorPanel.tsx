@@ -8,6 +8,19 @@ interface Props {
     data: DailyPrice[];
 }
 
+function toFiniteNumber(value: unknown): number | null {
+	if (typeof value === "number") {
+		return Number.isFinite(value) ? value : null;
+	}
+
+	if (typeof value === "string" && value.trim() !== "") {
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+
+	return null;
+}
+
 export default function IndicatorPanel({ data }: Props) {
     const rsiContainerRef = useRef<HTMLDivElement>(null);
     const macdContainerRef = useRef<HTMLDivElement>(null);
@@ -40,11 +53,18 @@ export default function IndicatorPanel({ data }: Props) {
         });
 
         rsiSeries.setData(
-            data.filter(d => d.rsi14 !== null).map(d => ({
-                time: d.date as Time,
-                value: d.rsi14 as number,
-            }))
-        );
+			data
+				.map((d) => {
+					const rsi = toFiniteNumber(d.rsi14);
+					if (rsi === null) return null;
+
+					return {
+						time: d.date as Time,
+						value: rsi,
+					};
+				})
+				.filter((point): point is { time: Time; value: number } => point !== null)
+		);
 
         // RSI Overbought/Oversold lines
         rsiSeries.createPriceLine({ price: 70, color: "rgba(255, 69, 96, 0.5)", lineWidth: 1, lineStyle: 2 });
@@ -76,12 +96,19 @@ export default function IndicatorPanel({ data }: Props) {
         });
 
         macdSeries.setData(
-            data.filter(d => d.macd !== null).map(d => ({
-                time: d.date as Time,
-                value: d.macd as number,
-                color: (d.macd as number) >= 0 ? "rgba(0, 229, 160, 0.6)" : "rgba(255, 69, 96, 0.6)",
-            }))
-        );
+			data
+				.map((d) => {
+					const macd = toFiniteNumber(d.macd);
+					if (macd === null) return null;
+
+					return {
+						time: d.date as Time,
+						value: macd,
+						color: macd >= 0 ? "rgba(0, 229, 160, 0.6)" : "rgba(255, 69, 96, 0.6)",
+					};
+				})
+				.filter((point): point is { time: Time; value: number; color: string } => point !== null)
+		);
 
         const handleResize = () => {
             rsiChart.applyOptions({ width: rsiContainerRef.current?.clientWidth });
