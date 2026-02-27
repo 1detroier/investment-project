@@ -20,7 +20,8 @@ function getSeriesTime(point: DailyPrice, timeRange: TimeRange): Time {
 		return Math.floor(new Date(`${point.date}T00:00:00Z`).getTime() / 1000) as Time;
 	}
 
-	return point.date as Time;
+	const [year, month, day] = point.date.split("-").map(Number);
+	return { year, month, day } as Time;
 }
 
 function getForecastTime(date: string, timeRange: TimeRange): Time {
@@ -28,7 +29,8 @@ function getForecastTime(date: string, timeRange: TimeRange): Time {
 		return Math.floor(new Date(`${date}T00:00:00Z`).getTime() / 1000) as Time;
 	}
 
-	return date as Time;
+	const [year, month, day] = date.split("-").map(Number);
+	return { year, month, day } as Time;
 }
 
 function toDate(time: Time): Date {
