@@ -11,6 +11,26 @@ interface Props {
     timeRange: TimeRange;
 }
 
+function getSeriesTime(point: DailyPrice, timeRange: TimeRange): Time {
+	if (timeRange === "1D") {
+		if (typeof point.timestamp === "number") {
+			return Math.floor(point.timestamp / 1000) as Time;
+		}
+
+		return Math.floor(new Date(`${point.date}T00:00:00Z`).getTime() / 1000) as Time;
+	}
+
+	return point.date as Time;
+}
+
+function getForecastTime(date: string, timeRange: TimeRange): Time {
+	if (timeRange === "1D") {
+		return Math.floor(new Date(`${date}T00:00:00Z`).getTime() / 1000) as Time;
+	}
+
+	return date as Time;
+}
+
 function toDate(time: Time): Date {
     if (typeof time === "string") return new Date(`${time}T00:00:00Z`);
     if (typeof time === "number") return new Date(time * 1000);
@@ -80,7 +100,7 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
         });
 
         const candleData: CandlestickData[] = data.map((d) => ({
-            time: (typeof d.timestamp === "number" ? Math.floor(d.timestamp / 1000) : d.date) as Time,
+            time: getSeriesTime(d, timeRange),
             open: d.open || d.close,
             high: d.high || d.close,
             low: d.low || d.close,
@@ -101,7 +121,7 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
         });
 
         const volData: HistogramData[] = data.map((d) => ({
-            time: (typeof d.timestamp === "number" ? Math.floor(d.timestamp / 1000) : d.date) as Time,
+            time: getSeriesTime(d, timeRange),
             value: d.volume || 0,
             color: (d.returns || 0) >= 0 ? "rgba(0, 229, 160, 0.4)" : "rgba(255, 69, 96, 0.4)",
         }));
@@ -117,7 +137,7 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
         const ma5Data: LineData[] = data
             .filter((d) => d.ma5 !== null)
             .map((d) => ({
-                time: (typeof d.timestamp === "number" ? Math.floor(d.timestamp / 1000) : d.date) as Time,
+                time: getSeriesTime(d, timeRange),
                 value: d.ma5 as number
             }));
         ma5Series.setData(ma5Data);
@@ -132,7 +152,7 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
         const ma20Data: LineData[] = data
             .filter((d) => d.ma20 !== null)
             .map((d) => ({
-                time: (typeof d.timestamp === "number" ? Math.floor(d.timestamp / 1000) : d.date) as Time,
+                time: getSeriesTime(d, timeRange),
                 value: d.ma20 as number
             }));
         ma20Series.setData(ma20Data);
@@ -151,10 +171,10 @@ export default function StockChart({ data, forecasts, timeRange }: Props) {
                 const lastData = data[data.length - 1];
                 forecastSeries.setData([
                     {
-                        time: (typeof lastData.timestamp === "number" ? Math.floor(lastData.timestamp / 1000) : lastData.date) as Time,
+                        time: getSeriesTime(lastData, timeRange),
                         value: lastData.close
                     },
-                    ...forecasts.map((f) => ({ time: f.date as Time, value: f.predictedClose })),
+                    ...forecasts.map((f) => ({ time: getForecastTime(f.date, timeRange), value: f.predictedClose })),
                 ]);
             }
         }
